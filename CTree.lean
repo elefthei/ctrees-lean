@@ -5,3 +5,5 @@ public import CTree.Core.Utils
 public import CTree.Core.Index
 public import CTree.Core.Definitions
 public import CTree.Coinduction
+public import CTree.Eq.Equ
+public import CTree.Eq.Trans

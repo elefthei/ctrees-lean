@@ -118,18 +118,27 @@ theorem brS_eq (c : B.I) (k : B.O c → CTree E B R) :
 @[simp] theorem unfold_brS (c : B.I) (k : B.O c → CTree E B R) :
     (CTree.brS c k).unfold = .br c fun x => .step (k x) := unfold_fold _
 
-@[simp] theorem ret_eq_ret_iff {r s : R} : (CTree.ret r : CTree E B R) = .ret s ↔ r = s := by
-  simp [CTree.ret]
-@[simp] theorem step_eq_step_iff {t u : CTree E B R} : t.step = u.step ↔ t = u := by
-  simp [CTree.step]
-@[simp] theorem guard_eq_guard_iff {t u : CTree E B R} : t.guard = u.guard ↔ t = u := by
-  simp [CTree.guard]
+@[simp] theorem fold_ret (r : R) : CTree.fold (.ret r) = (CTree.ret r : CTree E B R) := rfl
+@[simp] theorem fold_stuck : CTree.fold .stuck = (CTree.stuck : CTree E B R) := rfl
+@[simp] theorem fold_step (t : CTree E B R) : CTree.fold (.step t) = t.step := rfl
+@[simp] theorem fold_guard (t : CTree E B R) : CTree.fold (.guard t) = t.guard := rfl
+@[simp] theorem fold_vis (e : E.I) (k : E.O e → CTree E B R) :
+    CTree.fold (.vis e k) = CTree.vis e k := rfl
+@[simp] theorem fold_br (c : B.I) (k : B.O c → CTree E B R) :
+    CTree.fold (.br c k) = CTree.br c k := rfl
+
+@[simp] theorem ret_eq_ret_iff {r s : R} : (CTree.ret r : CTree E B R) = .ret s ↔ r = s :=
+  ⟨fun h => by simpa using congrArg CTree.unfold h, by rintro rfl; rfl⟩
+@[simp] theorem step_eq_step_iff {t u : CTree E B R} : t.step = u.step ↔ t = u :=
+  ⟨fun h => by simpa using congrArg CTree.unfold h, by rintro rfl; rfl⟩
+@[simp] theorem guard_eq_guard_iff {t u : CTree E B R} : t.guard = u.guard ↔ t = u :=
+  ⟨fun h => by simpa using congrArg CTree.unfold h, by rintro rfl; rfl⟩
 @[simp] theorem vis_eq_vis_iff {e : E.I} {k₁ k₂ : E.O e → CTree E B R} :
-    CTree.vis e k₁ = .vis e k₂ ↔ k₁ = k₂ := by
-  simp [CTree.vis]
+    CTree.vis e k₁ = .vis e k₂ ↔ k₁ = k₂ :=
+  ⟨fun h => by simpa using congrArg CTree.unfold h, by rintro rfl; rfl⟩
 @[simp] theorem br_eq_br_iff {c : B.I} {k₁ k₂ : B.O c → CTree E B R} :
-    CTree.br c k₁ = .br c k₂ ↔ k₁ = k₂ := by
-  simp [CTree.br]
+    CTree.br c k₁ = .br c k₂ ↔ k₁ = k₂ :=
+  ⟨fun h => by simpa using congrArg CTree.unfold h, by rintro rfl; rfl⟩
 
 /-! ## Approximations -/
 
@@ -407,7 +416,6 @@ theorem bind_def (t : CTree E B R) (k : R → CTree E B S) :
       | .br c h => .br c fun x => h x >>= k :=
   bind_unfold t k
 
-@[simp]
 theorem unfold_bind (t : CTree E B R) (k : R → CTree E B S) :
     (t >>= k).unfold = match t.unfold with
       | .ret r => (k r).unfold
@@ -527,6 +535,28 @@ def CTree.brS' {B₁ : Effect.{u}} [B₁ -< B] (c : B₁.I) (k : B₁.O c → CT
     CTree E B R :=
   .br' c fun x => .step (k x)
 
+/-- A subeffect embedding whose answer conversion is surjective, as for Rocq's `-<` (which
+preserves answer types): every answer of the sub-interface is reachable. Needed to show that every
+branch of an injected branching (`br'`, `br2`, …) is taken. -/
+class LawfulSubeffect (E₁ E₂ : Effect.{u}) [E₁ -< E₂] : Prop where
+  map_surj : ∀ (i : E₁.I) (x : E₁.O i), ∃ y, (Subeffect.map (E₂ := E₂) i).2 y = x
+
+instance {E₁ : Effect.{u}} : LawfulSubeffect E₁ E₁ := ⟨fun _ x => ⟨x, rfl⟩⟩
+
+instance {E₁ E₂ E' : Effect.{u}} [E₁ -< E'] [E₂ -< E'] [h₁ : LawfulSubeffect E₁ E']
+    [h₂ : LawfulSubeffect E₂ E'] : LawfulSubeffect (E₁ ⊕ₑ E₂) E' where
+  map_surj
+    | .inl i, x => h₁.map_surj i x
+    | .inr i, x => h₂.map_surj i x
+
+instance (priority := mid) {E₁ E₂ E' : Effect.{u}} [E₁ -< E₂] [h : LawfulSubeffect E₁ E₂] :
+    LawfulSubeffect E₁ (E₂ ⊕ₑ E') where
+  map_surj i x := h.map_surj i x
+
+instance (priority := low) {E₁ E₂ E' : Effect.{u}} [E₁ -< E₂] [h : LawfulSubeffect E₁ E₂] :
+    LawfulSubeffect E₁ (E' ⊕ₑ E₂) where
+  map_surj i x := h.map_surj i x
+
 @[partial_fixpoint_monotone]
 theorem vis'_mono α [PartialOrder α] {E₁ : Effect.{u}} [E₁ -< E] e
     (f : α → E₁.O e → CTree E B R) : monotone f → monotone (fun x => CTree.vis' e (f x)) := by
@@ -644,6 +674,10 @@ theorem unfold_iter {I : Type u} (step : I → CTree E B (I ⊕ R)) (i : I) :
 
 @[simp] theorem spinS_unfold : (CTree.spinS : CTree E B R).unfold = .step .spinS := by
   rw (occs := .pos [1]) [unfold_spinS]; simp
+
+@[simp] theorem spin_gen_unfold (c : B.I) :
+    (CTree.spin_gen c : CTree E B R).unfold = .br c fun _ => .spin_gen c := by
+  rw (occs := .pos [1]) [unfold_spin_gen]; simp
 
 @[simp] theorem spinS_bind (k : R → CTree E B S) : (CTree.spinS : CTree E B R) >>= k = .spinS := by
   ext n

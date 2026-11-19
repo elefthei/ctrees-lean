@@ -36,4 +36,19 @@ example (x y : Nat) : ¬ gfp (constB False) x y := fun h => gfp_pfp (b := constB
 
 end Tower
 
+/-! Phase 3: structural equality and the LTS -/
+
+example (t u : CTree E B02 Nat) : trans .tau (CTree.brS2 t u) u := trans_brS2_r
+
+example (x : Nat) : wtrans (.val x) (CTree.guard (CTree.step (pure x)) : CTree E B Nat) .stuck :=
+  wcons (trans_guard (trans_step _)) (trans_wtrans (trans_ret x))
+
+example : trans (.val 2) ((pure 1 : CTree E B Nat) >>= fun x => pure (x + 1)) .stuck :=
+  trans_bind_r (trans_ret 1) (trans_ret 2)
+
+example : isStuck (CTree.spin : CTree E B Nat) := spin_isStuck
+
+example (l : Label E) (u : CTree E B Nat) (h : trans l (pure 3) u) : l = .val 3 :=
+  (trans_ret_inv h).2
+
 end Test
