@@ -51,4 +51,22 @@ example : isStuck (CTree.spin : CTree E B Nat) := spin_isStuck
 example (l : Label E) (u : CTree E B Nat) (h : trans l (pure 3) u) : l = .val 3 :=
   (trans_ret_inv h).2
 
+/-! Phases 4-5: simulations, bisimulations, traces, heads -/
+
+example : (CTree.guard (pure 1) : CTree E B Nat) ~ (pure 1 : CTree E B Nat) := sb_guard _
+
+example : (CTree.step (CTree.guard (pure 1)) : CTree E B Nat) ≈ pure 1 :=
+  wbisim_trans (step_wb _) (guard_wb _)
+
+example : traceq (CTree.guard (pure 1) : CTree E B Nat) (pure 1 : CTree E B Nat) :=
+  sbisim_traceq (sb_guard _)
+
+example : isPure (pure 1 : CTree E B Nat) := isPure_ret 1
+
+example (t : CTree E B Nat) : t = head t >>= runHAction := get_run_haction t
+
+example (u : CTree E B Nat) (h : trans .tau (CTree.step u) u) :
+    trans (.val (HAction.step u)) (head (CTree.step u) : CTree E B (HAction E B Nat)) .stuck :=
+  trans_head_tau h
+
 end Test
