@@ -1,0 +1,24 @@
+name: Release
+
+# Reservoir indexes version tags (`v<digit>…`) on its own, about daily; there is no upload API.
+# This workflow checks the tagged revision builds and matches `version` in lakefile.toml, then
+# publishes the GitHub release for the tag.
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: leanprover/lean-action@v1
+      - name: Check tag matches lakefile version
+        run: grep -qx "version = \"${GITHUB_REF_NAME#v}\"" lakefile.toml
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes

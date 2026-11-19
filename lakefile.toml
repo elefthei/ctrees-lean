@@ -1,5 +1,9 @@
-name = "CTree"
+name = "ctrees"
 version = "0.1.0"
+description = "Choice Trees: a Lean 4 port of the Rocq ctrees library (coinductive semantics of nondeterminism)"
+keywords = ["coinduction", "bisimulation", "semantics", "interaction-trees"]
+license = "MIT"
+licenseFiles = ["LICENSE", "LICENSE-APACHE"]
 defaultTargets = ["Coinductive", "ITree", "CTree", "Test"]
 
 [[lean_lib]]

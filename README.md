@@ -10,6 +10,19 @@ weak (bi)simulations built on a Lean port of Damien Pous's coinduction tower, an
 
 Build: `lake build`. No Mathlib. `tests/UniverseCheck` is not portable (`PF` forces one universe).
 
+Use from another Lake package (released on [Reservoir](https://reservoir.lean-lang.org) as
+`elefthei/ctrees`):
+
+```toml
+[[require]]
+name = "ctrees"
+scope = "elefthei"
+rev = "v0.1.0"
+```
+
+The vendored libraries keep their module names (`Coinductive.CoInd`, `ITree.*`), so this package
+cannot be required alongside coinductive-lean itself.
+
 ## Layout
 
 | Rocq | Lean |
