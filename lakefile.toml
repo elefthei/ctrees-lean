@@ -1,0 +1,16 @@
+name = "CTree"
+version = "0.1.0"
+defaultTargets = ["Coinductive", "ITree", "CTree", "Test"]
+
+[[lean_lib]]
+name = "Coinductive"
+
+[[lean_lib]]
+name = "ITree"
+
+[[lean_lib]]
+name = "CTree"
+
+[[lean_lib]]
+name = "Test"
+globs = ["Test.+"]

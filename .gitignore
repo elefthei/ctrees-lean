@@ -1,0 +1,14 @@
+*~
+\#*
+.#*
+.lake
+.projectile
+.lean_options
+.vs
+*.idea
+tasks.json
+settings.json
+.gdb_history
+.vscode
+script/__pycache__
+/docs/
