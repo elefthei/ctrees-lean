@@ -653,10 +653,32 @@ def CTree.forever (k : R → CTree E B R) (i : R) : CTree E B R :=
   k i >>= fun i => .guard (forever k i)
 partial_fixpoint
 
+/-- Repeat a computation forever, each iteration under an observable `step`. -/
+def CTree.foreverS (k : R → CTree E B R) (i : R) : CTree E B R :=
+  k i >>= fun i => .step (foreverS k i)
+partial_fixpoint
+
 /-- Guarded iteration: `inl` continues the loop (under a `guard`), `inr` returns. -/
 def CTree.iter {I : Type u} (step : I → CTree E B (I ⊕ R)) (i : I) : CTree E B R :=
   step i >>= fun | .inl l => .guard (iter step l) | .inr r => pure r
 partial_fixpoint
+
+/-- Iteration with an observable `step` before each new iteration. -/
+def CTree.iterS {I : Type u} (step : I → CTree E B (I ⊕ R)) (i : I) : CTree E B R :=
+  step i >>= fun | .inl l => .step (iterS step l) | .inr r => pure r
+partial_fixpoint
+
+/-- Computes with fuel: removes up to `n` `guard`s and `step`s from the front of a tree, also
+under `br`s. -/
+def CTree.burn : Nat → CTree E B R → CTree E B R
+  | 0, t => t
+  | n + 1, t => match t.unfold with
+    | .ret r => pure r
+    | .stuck => .stuck
+    | .guard t => burn n t
+    | .step t => burn n t
+    | .vis e k => .vis e k
+    | .br c k => .br c fun x => burn n (k x)
 
 theorem unfold_spinS : (CTree.spinS : CTree E B R) = .step .spinS := by
   rw (occs := .pos [1]) [CTree.spinS]
@@ -671,6 +693,12 @@ theorem unfold_forever (k : R → CTree E B R) (i : R) :
 theorem unfold_iter {I : Type u} (step : I → CTree E B (I ⊕ R)) (i : I) :
     CTree.iter step i = step i >>= fun | .inl l => .guard (.iter step l) | .inr r => pure r := by
   rw (occs := .pos [1]) [CTree.iter]
+theorem unfold_foreverS (k : R → CTree E B R) (i : R) :
+    CTree.foreverS k i = k i >>= fun i => .step (.foreverS k i) := by
+  rw (occs := .pos [1]) [CTree.foreverS]
+theorem unfold_iterS {I : Type u} (step : I → CTree E B (I ⊕ R)) (i : I) :
+    CTree.iterS step i = step i >>= fun | .inl l => .step (.iterS step l) | .inr r => pure r := by
+  rw (occs := .pos [1]) [CTree.iterS]
 
 @[simp] theorem spinS_unfold : (CTree.spinS : CTree E B R).unfold = .step .spinS := by
   rw (occs := .pos [1]) [unfold_spinS]; simp

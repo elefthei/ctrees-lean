@@ -69,4 +69,15 @@ example (u : CTree E B Nat) (h : trans .tau (CTree.step u) u) :
     trans (.val (HAction.step u)) (head (CTree.step u) : CTree E B (HAction E B Nat)) .stuck :=
   trans_head_tau h
 
+/-! Phase 6: interpreters -/
+
+example (h : (e : E.I) → CTree E B (E.O e)) (t : CTree E B Nat) (k : Nat → CTree E B Nat) :
+    interp h (t >>= k) = interp h t >>= fun x => interp h (k x) := interp_bind h t k
+
+example (h : (e : E.I) → StateT Nat (CTree E B) (E.O e)) :
+    interp_state h (pure 1 : CTree E B Nat) 5 = (pure (1, 5) : CTree E B (Nat × Nat)) := by simp
+
+example : CTree.burn 2 (CTree.guard (CTree.step (pure 1)) : CTree E B Nat) = pure 1 := by
+  simp [CTree.burn]
+
 end Test
