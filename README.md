@@ -78,3 +78,8 @@ Build: `lake build`. No Mathlib. `tests/UniverseCheck` is not portable (`PF` for
   - `Interp/ITree.v`: `embed_eq`, `eq_itree_productive`. Lean's `ITree` equality is `=`. The
     vendored ITree has no `eutt`, so `Interp/ITree.lean` defines it locally with the tower
     (`EuttF`, `eutt`) to state and prove `embed_eutt`.
+
+## License
+
+MIT ([LICENSE](LICENSE)), as is the Rocq original. The vendored files under `Coinductive/` and
+`ITree/` keep their Apache-2.0 headers; their license text is in [LICENSE-APACHE](LICENSE-APACHE).
