@@ -13,7 +13,9 @@ public import CTree.Eq.SBisim
 public import CTree.Eq.Visible
 public import CTree.Eq.Epsilon
 public import CTree.Eq.SSimAlt
+public import CTree.Eq.SBisimAlt
 public import CTree.Eq.WBisim
 public import CTree.Eq.Trace
+public import CTree.Eq.IterFacts
 public import CTree.Misc.Pure
 public import CTree.Misc.Head
