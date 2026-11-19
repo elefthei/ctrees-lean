@@ -22,4 +22,18 @@ example : CTree.spin ≠ (CTree.spinS : CTree E B Nat) := by
   rw [unfold_spin, unfold_spinS] at this
   simp at this
 
+/-! Phase 2: coinduction tower -/
+
+section Tower
+open CTree.Coinduction
+
+def constB (p : Prop) : Mon (Rel Nat Nat) := ⟨fun _ _ _ => p, fun _ _ _ h => h⟩
+
+example (x y : Nat) : gfp (constB True) x y :=
+  coinduction (b := constB True) (fun _ : Unit => x) (fun _ => y) (fun _ _ _ _ => trivial) ()
+
+example (x y : Nat) : ¬ gfp (constB False) x y := fun h => gfp_pfp (b := constB False) _ _ h
+
+end Tower
+
 end Test
