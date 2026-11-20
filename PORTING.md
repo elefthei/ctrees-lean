@@ -13,7 +13,7 @@ part covers [vellvm/ctrees](https://github.com/vellvm/ctrees) (`theories/`), the
 | Rocq | Lean |
 |---|---|
 | `Core/{Utils,Index,CTreeDefinitions}.v` | `CTree/Core/{Utils,Index,Definitions}.lean` |
-| `coinduction` library (`tower.v`, `rel.v`) | `CTree/Coinduction.lean` |
+| `coinduction` library (`tower.v`, `rel.v`) | `Coinductive/Tower.lean` (namespace `Coinduction`) |
 | `Eq/{Equ,Shallow}.v` | `CTree/Eq/Equ.lean` |
 | `Eq/{Trans,SSim,CSSim,SBisim,Visible,Epsilon,SSimAlt,SBisimAlt,WBisim,Trace,IterFacts}.v` | `CTree/Eq/*.lean` (same names) |
 | `Misc/{Pure,Head}.v` | `CTree/Misc/{Pure,Head}.lean` |
@@ -23,8 +23,9 @@ part covers [vellvm/ctrees](https://github.com/vellvm/ctrees) (`theories/`), the
 
 - `CTree` is extensional, so Rocq's structural equality `equ eq` (`≅`) is `=`. Equality coinduction
   is `eq_coind`/`eq_coind_upto`.
-- `~` is `sbisim Eq` and `≈` is `wbisim`, both scoped to `namespace CTree`. Rocq's `step`
-  tactic is `*_unfold.1`/`.2`, and `coinduction` is `Coinduction.coinduction (b := …)`.
+- `~` is `sbisim Eq` and `≈` is `wbisim`, both scoped to `namespace CTree`. Pous's `coinduction R H`
+  and `step` tactics are `coinduction R hR CIH` and `step`; the goal of `coinduction` must quantify
+  over every argument and hypothesis of the coinductive statement (`∀ t u, P t u → t ~ u`).
 - Effects are `ITree.Effect` (`I`, `O`), and handlers `E ~> M` are `(e : E.I) → M (E.O e)`. Rocq's
   `-<` is `Subeffect`. Lemmas that need every branch of an injected `br'` to be reachable also take
   `[LawfulSubeffect B₁ B]`; Rocq gets this for free.
@@ -46,9 +47,8 @@ part covers [vellvm/ctrees](https://github.com/vellvm/ctrees) (`theories/`), the
 
 - **Everything about `equ`**: the `Proper (equ …)`, `weq` and `Lequiv` instances, the
   up-to-`equ` closures (`equ_clos*`), and `*_equ` lemmas. All are trivial for `=`.
-- **Rocq-only tooling**: Ltac and tactic notations (`step`, `coinduction`, `play`, `inv_trans`,
-  `upto_bind`, `break`, …), printing-only notations, and `Arguments`/`Opaque`/`Typeclasses Opaque`
-  directives.
+- **Rocq-only tooling**: Ltac and tactic notations (`play`, `inv_trans`, `upto_bind`, `break`, …),
+  printing-only notations, and `Arguments`/`Opaque`/`Typeclasses Opaque` directives.
 - **Chain-specialised duplicates of `_gen` rules** (`step_ss_*`, `step_css_*`, `step_sb_*` without
   `_gen`, `sbisim_ssim_subrelation`, …). Dropping the `Proper` hypotheses makes the `_gen`
   versions apply directly.

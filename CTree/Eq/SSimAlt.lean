@@ -461,8 +461,10 @@ theorem ssim_ssim' {t : CTree E C X} {u : CTree F D Y} : ssim L t u ↔ ssim' L 
 
 end Equiv
 
-example (t : CTree E C X) : (CTree.spin : CTree E C X) ≲ t :=
-  ssim_ssim'.2 <| coinduction (b := ss' Eq) (fun _ : CTree E C X => CTree.spin) id
-    (fun _ _ CIH u => by rw [unfold_spin]; exact step_ss'_guard_l (CIH u)) t
+example (t : CTree E C X) : (CTree.spin : CTree E C X) ≲ t := by
+  refine ssim_ssim'.2 ?_
+  revert t
+  coinduction R _ CIH
+  intro u; rw [unfold_spin]; exact step_ss'_guard_l (CIH u)
 
 end CTree

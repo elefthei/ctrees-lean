@@ -305,8 +305,8 @@ theorem ticl_interp_frame_log {X : Type} {b : Bool} (fr : ManagedHeap) (u : CTre
   have HC := csim_interp_frame h okE ER HH fr u s s' HF HR
   refine ticl_csim b (ER fr) (frameRV fr) p (frame_sim_unique ER b fr HU) _ _ w w' ?_ HW HP
   simp only [log, vis_bind, pure_bind']
-  refine b_chain (gfp_chain (csimF (ER fr) (frameRV fr))) _ _
-    ⟨fun l t1 ht => ?_, fun _ l' t1' ht' => ?_⟩
+  step
+  refine ⟨fun l t1 ht => ?_, fun _ l' t1' ht' => ?_⟩
   · obtain ⟨x, rfl, rfl⟩ := trans_vis_inv ht
     exact ⟨_, _, trans_vis PUnit.unit _, .obs _ _ _ _ HE HEq.rfl, HC⟩
   · obtain ⟨x, rfl, rfl⟩ := trans_vis_inv ht'

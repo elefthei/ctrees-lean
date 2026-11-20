@@ -505,17 +505,16 @@ theorem interp_state_ssim (Hh : ∀ e st, isSimple (h e st)) {R : X → X → Pr
     {t u : CTree E B X} (SIM : ssim (liftValRel R : Label E → Label E → Prop) t u) (st : St) :
     ssim (liftValRel (fun p q : X × St => R p.1 q.1 ∧ p.2 = q.2) : Label F → Label F → Prop)
       (interp_state h t st) (interp_state h u st) := by
-  refine ssim_ssim'.2 (coinduction (b := ss' _)
-    (fun p : {p : CTree E B X × CTree E B X × St //
-      ssim (liftValRel R : Label E → Label E → Prop) p.1 p.2.1} => interp_state h p.1.1 p.1.2.2)
-    (fun p => interp_state h p.1.2.1 p.1.2.2) ?_ ⟨(t, u, st), SIM⟩)
-  rintro CR hR CH ⟨⟨t, u, st⟩, SIM⟩
+  refine ssim_ssim'.2 ?_
+  revert t u SIM st
+  coinduction CR hR CH
+  intro t u SIM st
   show ss' _ CR (interp_state h t st) (interp_state h u st)
   have hst : CR .stuck .stuck := ss_sst' hR _ _ stuck_ss
   have hguard : ∀ {t' u' : CTree E B X} {s : St}, ssim (liftValRel R) t' u' →
       ss' (liftValRel (fun p q : X × St => R p.1 q.1 ∧ p.2 = q.2) : Label F → Label F → Prop) CR
         (interp_state h t' s).guard (interp_state h u' s).guard :=
-    fun H => step_ss'_guard (CH ⟨(_, _, _), H⟩)
+    fun H => step_ss'_guard (CH H _)
   cases t with
   | ret x =>
     obtain ⟨l, u', TR, hl⟩ := ssim_ret_l_inv SIM
@@ -531,7 +530,7 @@ theorem interp_state_ssim (Hh : ∀ e st, isSimple (h e st)) {R : X → X → Pr
       .nonval _ _ isVal_tau isVal_tau rfl⟩
   | guard t =>
     rw [interp_state_guard]
-    exact step_ss'_guard_l (CH ⟨(t, u, st), ssim_guard_l_inv SIM⟩)
+    exact step_ss'_guard_l (CH (ssim_guard_l_inv SIM) st)
   | vis e k =>
     rw [interp_state_vis]
     rcases Hh e st with Hp | Hs
@@ -562,7 +561,7 @@ theorem interp_state_ssim (Hh : ∀ e st, isSimple (h e st)) {R : X → X → Pr
   | br c k =>
     rw [interp_state_br, bind_branch', CTree.br']
     exact step_ss'_br_l fun y => b_chain hR _ _
-      (step_ss'_guard_l (CH ⟨(_, u, st), ssim_br_l_inv SIM _⟩))
+      (step_ss'_guard_l (CH (ssim_br_l_inv SIM _) st))
 
 private theorem prod_eq_rel {A S' : Type u} :
     (fun p q : A × S' => p.1 = q.1 ∧ p.2 = q.2) = Eq :=
@@ -597,20 +596,17 @@ theorem interp_state_sbisim_aux (Hh : ∀ e st, isSimple (h e st)) {R : X → X 
   have hL' : ∀ l l', (liftValRel (fun p q : X × St => R p.1 q.1 ∧ p.2 = q.2) :
       Label F → Label F → Prop) l l' → liftValRel _ l' l :=
     fun _ _ H => H.symm (fun _ _ => Eq.symm) fun _ _ h => ⟨hsym _ _ h.1, h.2.symm⟩
-  refine coinduction₃ (b := sb' _) (fun _ => true)
-    (fun p : {p : CTree E B X × CTree E B X × St //
-      ss (liftValRel R : Label E → Label E → Prop) (sbisim (liftValRel R)) p.1 p.2.1} =>
-        interp_state h p.1.1 p.1.2.2)
-    (fun p => interp_state h p.1.2.1 p.1.2.2) ?_ ⟨(t, u, st), SIM⟩
-  rintro CR hR CH ⟨⟨t, u, st⟩, SIM⟩
+  revert t u st SIM
+  coinduction CR hR CH
+  intro t u st SIM
   show sb' _ CR true (interp_state h t st) (interp_state h u st)
   -- both sides of the `guard`-continuations, from a bisimilar pair
   have hguard : ∀ {t' u' : CTree E B X} {s : St}, sbisim (liftValRel R) t' u' → ∀ side,
       sb' (liftValRel (fun p q : X × St => R p.1 q.1 ∧ p.2 = q.2) : Label F → Label F → Prop) CR
         side (interp_state h t' s).guard (interp_state h u' s).guard := fun H =>
-    (split_st' hL' (.step hR)).2 ⟨step_sb'_guard (CH ⟨(_, _, _), (sbisim_unfold.1 H).1⟩),
-      step_sb'_guard (CH ⟨(_, _, _),
-        (sbisim_unfold.1 (sb_chain_symm hL (gfp_chain _) _ _ H)).1⟩)⟩
+    (split_st' hL' (.step hR)).2 ⟨step_sb'_guard (CH _ (sbisim_unfold.1 H).1),
+      step_sb'_guard (CH _
+        (sbisim_unfold.1 (sb_chain_symm hL (gfp_chain _) _ _ H)).1)⟩
   cases t with
   | ret x =>
     obtain ⟨l, u', TR, -, hl⟩ := ss_ret_l_inv SIM
@@ -627,7 +623,7 @@ theorem interp_state_sbisim_aux (Hh : ∀ e st, isSimple (h e st)) {R : X → X 
       fun side => b_chain hR side _ _ (hguard SIM' side), .nonval _ _ isVal_tau isVal_tau rfl⟩
   | guard t =>
     rw [interp_state_guard]
-    exact step_sb'_true_guard_l hR (CH ⟨(t, u, st), ss_guard_l_inv SIM⟩)
+    exact step_sb'_true_guard_l hR (CH st (ss_guard_l_inv SIM))
   | vis e k =>
     rw [interp_state_vis]
     rcases Hh e st with Hp | Hs
@@ -659,7 +655,7 @@ theorem interp_state_sbisim_aux (Hh : ∀ e st, isSimple (h e st)) {R : X → X 
   | br c k =>
     rw [interp_state_br, bind_branch', CTree.br']
     exact step_sb'_true_br_l hR fun y => b_chain hR true _ _
-      (step_sb'_true_guard_l hR (CH ⟨(_, u, st), ss_br_l_inv SIM _⟩))
+      (step_sb'_true_guard_l hR (CH st (ss_br_l_inv SIM _)))
 
 /-- Rocq instance `interp_state_sbisim`. -/
 theorem interp_state_sbisim (Hh : ∀ e st, isSimple (h e st)) {R : X → X → Prop}

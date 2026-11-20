@@ -149,16 +149,14 @@ end FairBridge
 /-- Any policy whose picks are inductively fair is a `FairScheduler`. -/
 theorem eventually_picks_fair (sch : Scheduler)
     (hep : ∀ n (i : Fin (n + 1)) st, EventuallyPicks sch n i st) : FairScheduler sch := by
-  refine ⟨fun n i st w hw => ?_⟩
-  refine coinduction (b := agcF (entails (AF (visWₜ (slot_index i = ·)))))
-    (fun p : (Σ' (st : sch.sched_state) (w : World (writerE Nat)), NotDone w) =>
-      sched_trace sch n p.1) (fun p => p.2.1) ?_ ⟨st, w, hw⟩
-  rintro R - cih ⟨st, w, hw⟩
+  refine ⟨fun n i => ?_⟩
+  coinduction R _ cih
+  intro st w hw
   refine ⟨eventually_picks_af sch n i st w (hep n i st) hw, ?_, fun t' w' tr => ?_⟩
   · rw [unfold_sched_trace]
     exact can_step_br_alts.2 ⟨0, (can_step_vis PUnit.unit).2 hw⟩
   · obtain ⟨a, rfl, rfl⟩ := sched_trace_pick_inv sch n st w t' w' tr
-    exact cih ⟨_, _, .obs _ _⟩
+    exact cih _ _ (.obs _ _)
 
 theorem rr_eventually_picks (n : Nat) (i : Fin (n + 1)) :
     ∀ m : Nat, EventuallyPicks rr_scheduler n i m := by
@@ -277,20 +275,20 @@ theorem ag_pool_fair_invariance {G : Type} (Inv : G → Pool E Bn (n + 1) → Sg
       intro w hw
       rw [List.map_cons, emit_list_cons]
       exact hlog o _ w hw (ih _ (.obs _ _))
-  have hcoind := coinduction (b := agcF (entails φ))
-    (ι := {p : ctreeW (W ⊕ Nat) Bn (PUnit × Sg) × World (writerE (W ⊕ Nat)) //
-      NotDone p.2 ∧ ∃ (g : G) (ts : Pool E Bn (n + 1)) (σ : Sg) (st : sch.sched_state)
-        (xs : List W), Inv g ts σ ∧
-        p.1 ~ emit_list (xs.map .inl) (interp_schedule_fair sch handler (n + 1) ts none st σ)})
-    (fun p => p.1.1) (fun p => p.1.2) ?_
-  · intro g ts σ focus st w hinv hw
+  suffices hcoind : ∀ (t : ctreeW (W ⊕ Nat) Bn (PUnit × Sg)) (w : World (writerE (W ⊕ Nat))),
+      NotDone w → ∀ (g : G) (ts : Pool E Bn (n + 1)) (σ : Sg) (st : sch.sched_state)
+        (xs : List W), Inv g ts σ →
+        t ~ emit_list (xs.map .inl) (interp_schedule_fair sch handler (n + 1) ts none st σ) →
+        entails (AG φ) t w by
+    intro g ts σ focus st w hinv hw
     cases focus with
-    | none => exact hcoind ⟨(_, w), hw, g, ts, σ, st, [], hinv, sbisim_refl _⟩
+    | none => exact hcoind _ w hw g ts σ st [] hinv (sbisim_refl _)
     | some j =>
       obtain ⟨g', logs, residual, σ', hseg, hinv'⟩ := hclosed g ts σ j hinv
-      exact hcoind ⟨(_, w), hw, g', _, σ', st, logs, hinv',
-        segment_fair handler sch ts j st σ logs residual σ' hseg⟩
-  rintro R - cih ⟨⟨t, w⟩, hw, g, ts, σ, st, xs, hinv, ht⟩
+      exact hcoind _ w hw g' _ σ' st logs hinv'
+        (segment_fair handler sch ts j st σ logs residual σ' hseg)
+  coinduction R _ cih
+  intro t w hw g ts σ st xs hinv ht
   refine ⟨(proper_entails_meq φ ht).2 (hpref xs _ (fun w hw => hφ g ts σ st w hinv hw) w hw), ?_⟩
   cases xs with
   | cons o rest =>
@@ -298,7 +296,7 @@ theorem ag_pool_fair_invariance {G : Type} (Inv : G → Pool E Bn (n + 1) → Sg
     refine ⟨(proper_can_step ht).2 ((can_step_vis PUnit.unit).2 hw), fun t' w' tr => ?_⟩
     obtain ⟨u, tr, hu⟩ := ktrans_semiproper ht tr
     obtain ⟨⟨⟩, rfl, rfl, -⟩ := ktrans_vis.1 tr
-    exact cih ⟨(t', _), .obs _ _, g, ts, σ, st, rest, hinv, hu⟩
+    exact cih t' _ (.obs _ _) g ts σ st rest hinv hu
   | nil =>
     have ht' := sbisim_trans ht (interp_schedule_fair_select sch handler n ts st σ)
     refine ⟨(proper_can_step ht').2
@@ -308,8 +306,8 @@ theorem ag_pool_fair_invariance {G : Type} (Inv : G → Pool E Bn (n + 1) → Sg
     obtain ⟨a, tr⟩ := ktrans_br_alts.1 tr
     obtain ⟨⟨⟩, rfl, rfl, -⟩ := ktrans_vis.1 tr
     obtain ⟨g', logs, residual, σ', hseg, hinv'⟩ := hclosed g ts σ _ hinv
-    exact cih ⟨(t', _), .obs _ _, g', _, σ', _, logs, hinv',
-      sbisim_trans hu (segment_fair handler sch ts _ _ σ logs residual σ' hseg)⟩
+    exact cih t' _ (.obs _ _) g' _ σ' _ logs hinv'
+      (sbisim_trans hu (segment_fair handler sch ts _ _ σ logs residual σ' hseg))
 
 /-- The `AF` half: the helpful slot is eventually picked, and every turn makes progress toward
 the goal or leaves the rank alone. -/

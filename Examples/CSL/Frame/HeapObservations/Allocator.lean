@@ -182,10 +182,10 @@ theorem repeat_plain_payload_recurrent : RecurrentLabel L repeat_emit_7 := by
       (fun x => x) ⟨⟩
     simp only [emit_list_cons] at h
     exact h
-  refine coinduction₁ (b := recurrentLabelF L)
-    (ι := {t : ctreeW Nat Bn PUnit // t ~ repeat_emit_7}) (fun t => t.1) ?_
-    ⟨repeat_emit_7, sbisim_refl _⟩
-  rintro R - cih ⟨t, et⟩
+  suffices H : ∀ t : ctreeW Nat Bn PUnit, t ~ repeat_emit_7 → RecurrentLabel L t from
+    H _ (sbisim_refl _)
+  coinduction R _ cih
+  intro t et
   have evis := sbisim_trans et eloop
   refine ⟨eventually_label_sbisim L
     (CTree.vis (E := writerE Nat) (7 : Nat) fun _ => repeat_emit_7) t
@@ -196,7 +196,7 @@ theorem repeat_plain_payload_recurrent : RecurrentLabel L repeat_emit_7 := by
       exact .inl rfl
   · obtain ⟨_, u', tr', eu, rfl⟩ := (sbisim_unfold.1 evis).1 _ _ tr
     obtain ⟨_, rfl, rfl⟩ := trans_vis_inv tr'
-    exact cih ⟨u, eu⟩
+    exact cih u eu
 
 private theorem spinS_not_recurrent :
     ¬ RecurrentLabel L (CTree.spinS : ctreeW Nat Bn PUnit) := by
@@ -215,16 +215,13 @@ theorem retained_payload_not_recurrent :
     entails (AG (AF (visWₜ fun n : Nat => n = 7))) once_then_silent .pure ∧
     ¬ RecurrentLabel L once_then_silent := by
   refine ⟨ag_log_iff.2 ⟨af_log .pure (.matchA ((ticl_vis _).2 (.obs _ _ rfl))), ?_⟩, ?_⟩
-  · refine coinduction (b := agcF (entails (AF (visWₜ fun n : Nat => n = 7))))
-      (ι := Unit) (fun _ => (CTree.spinS : ctreeW Nat Bn PUnit))
-      (fun _ => .obs (E := writerE Nat) (7 : Nat) ⟨⟩) ?_ ()
-    rintro R - cih -
+  · coinduction R _ cih
     refine ⟨.matchA ((ticl_vis _).2 (.obs _ _ rfl)),
       by rw [unfold_spinS]; exact can_step_step.2 (.obs _ _), ?_⟩
     intro t' w' tr
     rw [unfold_spinS] at tr
     obtain ⟨rfl, rfl, -⟩ := ktrans_step.1 tr
-    exact cih ()
+    exact cih
   · intro h
     refine spinS_not_recurrent
       ((recurrent_label_unfold.1 h).2 (.obs (E := writerE Nat) (7 : Nat) ⟨⟩) _ ?_)

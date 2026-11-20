@@ -18,7 +18,7 @@ namespace CTree
 open Coinductive Lean.Order
 open ITree (Effect Subeffect)
 
-open CTree.Coinduction
+open Coinduction
 variable {D E B : Effect.{u}} {R S : Type u}
 
 section Facts
@@ -108,10 +108,8 @@ theorem interp_mrec_as_interp (c : CTree (D ⊕ₑ E) B R) :
   suffices h : ∀ c : CTree (D ⊕ₑ E) B R, ∀ side,
       gfp (sb' Eq) side (interp_mrec ctx c) (.guard (interp (mrecursive ctx) c)) from
     sbisim_trans (sbisim_sbisim'.2 (h c)) (sb_guard _)
-  refine gfp_prop (b := sb' Eq) (P := fun Rr => ∀ (c : CTree (D ⊕ₑ E) B R) side,
-      Rr side (interp_mrec ctx c) (.guard (interp (mrecursive ctx) c)))
-    (tower (infClosed_forall fun c => infClosed_forall fun s => Rel3.infClosed_apply s _ _) ?_)
-  intro Rr hR CIH c side
+  coinduction Rr hR CIH
+  intro c side
   cases c with
   | ret r =>
     simp only [interp_mrec_ret, interp_ret]

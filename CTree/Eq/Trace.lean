@@ -97,16 +97,15 @@ end
 
 /-- Trace inclusion is weaker than similarity. -/
 theorem ssim_tracincl {t : CTree E C X} {t' : CTree E D Y} (h : ssim Eq t t') : tracincl t t' := by
-  intro s hs
-  refine coinduction (b := htr)
-    (fun i : {p : Trace E × CTree E C X × CTree E D Y // ssim Eq p.2.1 p.2.2 ∧ has_trace p.1 p.2.1}
-      => i.1.1) (fun i => i.1.2.2) ?_ ⟨(s, t, t'), h, hs⟩
-  rintro R - CIH ⟨⟨s, t, t'⟩, hss, hs⟩
+  suffices H : ∀ s (t : CTree E C X) (t' : CTree E D Y), ssim Eq t t' → has_trace s t →
+      has_trace s t' from fun s hs => H s t t' h hs
+  coinduction _ _ CIH
+  intro s t t' hss hs
   rcases Trace.eq_nil_or_cons s with rfl | ⟨l, s', rfl⟩
   · exact htr_nil
   · obtain ⟨t₁, ht₁, hs'⟩ := htr_cons.1 (has_trace_unfold.1 hs)
     obtain ⟨l', u', hu', hss', rfl⟩ := ssim_unfold.1 hss _ _ ht₁
-    exact htr_cons.2 ⟨u', hu', CIH ⟨(s', t₁, u'), hss', hs'⟩⟩
+    exact htr_cons.2 ⟨u', hu', CIH s' t₁ u' hss' hs'⟩
 
 /-- Trace equivalence is weaker than bisimilarity. -/
 theorem sbisim_traceq {t t' : CTree E C X} (h : t ~ t') : traceq t t' :=

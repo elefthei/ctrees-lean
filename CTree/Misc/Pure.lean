@@ -97,13 +97,14 @@ theorem trans_bind_pure {k : X → CTree E C Y} {u : CTree E C Y} {l : Label E} 
   · exact h'
 
 theorem isPure_map (f : X → Y) (h : isPure t) : isPure (f <$> t) := by
-  refine coinduction₁ (b := fpure) (fun i : {t : CTree E C X // isPure t} => f <$> i.1)
-    (fun P _ CIH ⟨t, ht⟩ => ?_) ⟨t, h⟩
+  suffices H : ∀ t : CTree E C X, isPure t → isPure (f <$> t) from H t h
+  coinduction _ _ CIH
+  intro t ht
   rcases isPure_unfold.1 ht with ⟨v, rfl⟩ | ⟨rfl⟩ | ⟨c, k, rfl, hk⟩ | ⟨u, rfl, hu⟩
   · exact .ret (f v) (by simp)
   · exact .stuck (by simp)
-  · exact .br c _ (by simp) fun v => CIH ⟨k v, hk v⟩
-  · exact .guard _ (by simp) (CIH ⟨u, hu⟩)
+  · exact .br c _ (by simp) fun v => CIH (k v) (hk v)
+  · exact .guard _ (by simp) (CIH u hu)
 
 end IsPure
 

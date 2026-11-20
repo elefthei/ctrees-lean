@@ -181,18 +181,17 @@ theorem eutt_inv_tauL {t₁ : ITree.ITree E R₁} {t₂ : ITree.ITree E R₂}
 
 theorem eutt_sym {t₁ : ITree.ITree E R₁} {t₂ : ITree.ITree E R₂} (h : eutt RR t₁ t₂) :
     eutt (flip RR) t₂ t₁ := by
-  refine coinduction (b := euttB (flip RR))
-    (fun p : {p : ITree.ITree E R₁ × ITree.ITree E R₂ // eutt RR p.1 p.2} => p.1.2)
-    (fun p => p.1.1) (fun R _ CIH ⟨⟨t₁, t₂⟩, h⟩ => ?_) ⟨(t₁, t₂), h⟩
-  have CIH : ∀ a b, eutt RR a b → R b a := fun a b h => CIH ⟨(a, b), h⟩
+  revert t₁ t₂ h
+  coinduction R _ CIH
+  intro t₁ t₂ h
   have h : EuttF RR (eutt RR) t₁.unfold t₂.unfold := eutt_unfold.1 h
   show EuttF (flip RR) R t₂.unfold t₁.unfold
   generalize t₁.unfold = o₁ at h ⊢
   generalize t₂.unfold = o₂ at h ⊢
   induction h with
   | ret h => exact .ret h
-  | tau h => exact .tau (CIH _ _ h)
-  | vis h => exact .vis fun x => CIH _ _ (h x)
+  | tau h => exact .tau (CIH h)
+  | vis h => exact .vis fun x => CIH (h x)
   | tauL _ ih => exact .tauR ih
   | tauR _ ih => exact .tauL ih
 
@@ -258,10 +257,10 @@ private theorem embed_eutt_ss {R : Rel (CTree E (B01 ⊕ₑ C) X) (CTree E (B01 
 
 /-- `embed` maps `eutt`-equivalent itrees to strongly bisimilar ctrees. -/
 theorem embed_eutt {t u : ITree.ITree (C ⊕ₑ E) X} (h : eutt Eq t u) : embed t ~ embed u := by
-  refine coinduction (b := sb Eq)
-    (fun p : {p : ITree.ITree (C ⊕ₑ E) X × ITree.ITree (C ⊕ₑ E) X // eutt Eq p.1 p.2} =>
-      embed p.1.1) (fun p => embed p.1.2) (fun R hR CIH ⟨⟨t, u⟩, h⟩ => ?_) ⟨(t, u), h⟩
-  have CIH : ∀ t u, eutt Eq t u → R (embed t) (embed u) := fun t u h => CIH ⟨(t, u), h⟩
+  revert t u h
+  coinduction R hR CIH
+  intro t u h
+  have CIH : ∀ t u, eutt Eq t u → R (embed t) (embed u) := fun _ _ h => CIH h
   have hsym : eutt Eq u t := by
     have h' := eutt_sym h
     rwa [show flip (@Eq X) = Eq from funext fun _ => funext fun _ => propext eq_comm] at h'

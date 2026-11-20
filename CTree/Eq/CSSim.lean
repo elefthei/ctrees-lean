@@ -336,12 +336,10 @@ theorem cssim_brS_id {c : C.I} {d : D.I} (hO : C.O c = D.O d) {k : C.O c → CTr
 
 /-- Visible n-ary spins with nonempty branchings simulate each other completely. -/
 theorem cssim_spinS_gen_nonempty {c : C.I} {d : D.I} (x : C.O c) (y : D.O d) (hL : L .tau .tau) :
-    cssim L (.spinS_gen c : CTree E C X) (.spinS_gen d : CTree F D Y) :=
-  coinduction (b := css L) (fun _ : Unit => (.spinS_gen c : CTree E C X))
-    (fun _ => (.spinS_gen d : CTree F D Y)) (by
-      intro R _ CIH _
-      rw [unfold_spinS_gen c, unfold_spinS_gen d]
-      exact step_css_brS_gen ⟨x⟩ (fun _ => ⟨y, CIH ⟨⟩⟩) hL) ⟨⟩
+    cssim L (.spinS_gen c : CTree E C X) (.spinS_gen d : CTree F D Y) := by
+  coinduction R _ CIH
+  rw [unfold_spinS_gen c, unfold_spinS_gen d]
+  exact step_css_brS_gen ⟨x⟩ (fun _ => ⟨y, CIH⟩) hL
 
 end ProofRules
 

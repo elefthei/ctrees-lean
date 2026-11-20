@@ -158,17 +158,16 @@ theorem not_Transitive_wt (x : X) (e : E.I) (z : E.O e) :
     ¬ ∀ R, Chain (wb : Mon (Rel (CTree E C X) _)) R → ∀ t u v, R t u → R u v → R t v := by
   intro H
   have key : (CTree.vis e fun _ => pure x : CTree E C X) ≈ pure x := by
-    refine coinduction (b := wb) (fun _ : Unit => CTree.vis e fun _ => pure x)
-      (fun _ => (pure x : CTree E C X)) (fun R hR CIH _ => ?_) ⟨⟩
+    coinduction R hR CIH
     have hT := H _ (.step hR)
     have hg : ∀ t u, t ≈ u → wb R t u := gfp_le_chain (.step hR)
     have main : wb R (.step (.vis e fun _ => pure x)) (.step (pure x)) :=
       ⟨fun l t' h => by
         obtain ⟨rfl, rfl⟩ := trans_step_inv h
-        exact ⟨pure x, trans_wtrans (trans_step _), CIH ⟨⟩⟩,
+        exact ⟨pure x, trans_wtrans (trans_step _), CIH⟩,
        fun l t' h => by
         obtain ⟨rfl, rfl⟩ := trans_step_inv h
-        exact ⟨_, trans_wtrans (trans_step _), CIH ⟨⟩⟩⟩
+        exact ⟨_, trans_wtrans (trans_step _), CIH⟩⟩
     exact hT _ _ _ (hg _ _ (wbisim_symm (step_wb _))) (hT _ _ _ main (hg _ _ (step_wb _)))
   obtain ⟨u', hu, -⟩ := (wbisim_unfold.1 key).1 (.obs e z) _ (trans_vis z _)
   rcases wtrans_ret_inv hu with ⟨h, -⟩ | ⟨h, -⟩ <;> cases h

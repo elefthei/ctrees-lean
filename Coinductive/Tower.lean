@@ -1,6 +1,8 @@
 /- SPDX-License-Identifier: MIT -/
 module
 
+public meta import Lean.Elab.Tactic.ElabTerm
+
 /-!
 # Coinduction via the final chain (tower induction)
 
@@ -11,22 +13,20 @@ the closure of the top element under `b` and arbitrary infima. Reasoning about c
 
 ## Usage pattern
 
-To prove `∀ a, gfp b (f a) (g a)` for a relation transformer `b : Mon (Rel α β)`:
+The tactics `coinduction R hR CIH` and `step` are the ones of the Rocq library:
 ```
-theorem foo (a : A) : sbisim L (f a) (g a) :=
-  coinduction (b := sb L) (fun a : A => f a) (fun a => g a) (by
-    intro R hR CIH a
-    -- goal: sb L R (f a) (g a); CIH : ∀ a, R (f a) (g a)
-    -- use `b_chain hR`, `gfp_le_chain hR`, chain-closure lemmas with `hR`
-    …) a
+theorem foo : ∀ a, sbisim L (f a) (g a) := by
+  coinduction R hR CIH
+  -- hR : Chain (sb L) R, CIH : ∀ a, R (f a) (g a) ⊢ ∀ a, sb L R (f a) (g a)
+  intro a
+  …  -- use `step` on goals `R x y`, `gfp_le_chain hR`, chain-closure lemmas with `hR`
 ```
-Multi-argument goals package the arguments in a sigma or product type `ι`. Unfolding `gfp` once
-(Rocq `step`): `apply b_chain (gfp_chain _)` on a goal, `gfp_pfp _ _ _ h` on a hypothesis. A chain
-element is unfolded with `b_chain hR`.
+Hypotheses of the coinductive statement are binders of the goal: `∀ a, P a → gfp b (f a) (g a)`.
+On a hypothesis, `gfp_pfp _ _ h` unfolds `gfp` once.
 -/
 
 @[expose] public section
-namespace CTree.Coinduction
+namespace Coinduction
 
 /-- The complete-lattice fragment the tower needs (arbitrary infima). -/
 class Lattice (X : Type u) where
@@ -203,9 +203,6 @@ theorem compat_chain (f : Mon X) (hf : Compat b f) : ∀ x, Chain b x → f x �
 
 end Tower
 
-theorem Pred.infClosed_apply {α : Type u} (a : α) : InfClosed fun P : Pred α => P a :=
-  fun _ hT => Pred.inf_apply.2 hT
-
 theorem Rel.infClosed_apply {α : Type u} {β : Type v} (a : α) (c : β) :
     InfClosed fun R : Rel α β => R a c :=
   fun _ hT => Rel.inf_apply.2 hT
@@ -213,24 +210,6 @@ theorem Rel.infClosed_apply {α : Type u} {β : Type v} (a : α) (c : β) :
 theorem Rel3.infClosed_apply {γ : Type w} {α : Type u} {β : Type v} (i : γ) (a : α) (c : β) :
     InfClosed fun R : Rel3 γ α β => R i a c :=
   fun _ hT => Rel3.inf_apply.2 hT
-
-/-- Replaces the Rocq `coinduction R CIH` tactic. -/
-theorem coinduction {α : Type u} {β : Type v} {b : Mon (Rel α β)} {ι : Sort w} (f : ι → α)
-    (g : ι → β) (h : ∀ R, Chain b R → (∀ i, R (f i) (g i)) → ∀ i, b R (f i) (g i)) :
-    ∀ i, gfp b (f i) (g i) :=
-  gfp_prop <| tower (infClosed_forall fun i => Rel.infClosed_apply (f i) (g i)) h
-
-/-- `coinduction` for predicates. -/
-theorem coinduction₁ {α : Type u} {b : Mon (Pred α)} {ι : Sort w} (f : ι → α)
-    (h : ∀ P, Chain b P → (∀ i, P (f i)) → ∀ i, b P (f i)) : ∀ i, gfp b (f i) :=
-  gfp_prop <| tower (infClosed_forall fun i => Pred.infClosed_apply (f i)) h
-
-/-- `coinduction` for ternary relations. -/
-theorem coinduction₃ {γ : Type w} {α : Type u} {β : Type v} {b : Mon (Rel3 γ α β)} {ι : Sort w'}
-    (c : ι → γ) (f : ι → α) (g : ι → β)
-    (h : ∀ R, Chain b R → (∀ i, R (c i) (f i) (g i)) → ∀ i, b R (c i) (f i) (g i)) :
-    ∀ i, gfp b (c i) (f i) (g i) :=
-  gfp_prop <| tower (infClosed_forall fun i => Rel3.infClosed_apply (c i) (f i) (g i)) h
 
 /-! ## Relations (`rel.v`) -/
 
@@ -319,4 +298,114 @@ theorem trans_symchain (h : Symmetrical (converse α) b s)
 
 end SymRel
 
-end CTree.Coinduction
+/-! ## Tactics (Rocq `coinduction`, `step`) -/
+
+section Tactics
+open Lean Meta Elab Tactic
+
+/-- Unfold the head of `e` until it is an application `gfp b args`; returns `gfp b` and `args`. -/
+private meta partial def gfpApp? (e : Expr) : MetaM (Option (Expr × Array Expr)) := do
+  let e ← whnfCore e
+  if e.isAppOf ``gfp && e.getAppNumArgs > 3 then
+    let args := e.getAppArgs
+    return some (mkAppN e.getAppFn (args.extract 0 3), args.extract 3 args.size)
+  match ← unfoldDefinition? e with
+  | some e => gfpApp? e
+  | none => return none
+
+/-- `inf T args ↔ ∀ R, T R → R args` at the given arity. -/
+private meta def infApply : Nat → MetaM Name
+  | 1 => pure ``Pred.inf_apply
+  | 2 => pure ``Rel.inf_apply
+  | 3 => pure ``Rel3.inf_apply
+  | k => throwError "coinduction: relations of arity {k} are not supported"
+
+/-- `coinduction R hR CIH` on a goal `∀ xs, gfp b args` (the head may be a definition unfolding
+to `gfp b`) introduces a chain element `R` with `hR : Chain b R` and the coinduction hypothesis
+`CIH : ∀ xs, R args`, and leaves `∀ xs, b R args`. Proved by `tower` with the predicate
+`fun R => ∀ xs, R args`, so `CIH` may be used under any `b`-step taken with chain lemmas. -/
+syntax (name := coinductionTac) &"coinduction" ppSpace binderIdent ppSpace binderIdent ppSpace
+  binderIdent : tactic
+
+elab_rules : tactic
+  | `(tactic| coinduction $R $hR $cih) => do
+    let g ← getMainGoal
+    g.withContext do
+    -- `have`/`let` leave an mdata annotation that `forallTelescope` does not see through
+    let ty := (← instantiateMVars (← g.getType)).consumeMData
+    let (P, hinf, hTy, gb) ← forallTelescope ty fun xs body => do
+      let some (gb, as) ← gfpApp? body
+        | throwError "coinduction: the goal is not of the form `∀ xs, gfp b args`"
+      let #[X, inst, b] := gb.getAppArgs | throwError "coinduction: unexpected `gfp` term"
+      if xs.any (gb.containsFVar ·.fvarId!) then
+        throwError "coinduction: `{gb}` depends on a quantified variable; introduce it first"
+      let lem ← infApply as.size
+      -- `P R := ∀ xs, R args`
+      let P ← withLocalDeclD `R X fun R => do
+        mkLambdaFVars #[R] (← mkForallFVars xs (mkAppN R as))
+      -- `InfClosed P`: `fun T hT xs => (inf_apply).2 fun R hR => hT R hR xs`
+      let hinf ← withLocalDeclD `T (← mkArrow X (mkSort .zero)) fun T => do
+        let hTTy ← withLocalDeclD `x X fun x => do
+          mkForallFVars #[x] (← mkArrow (mkApp T x) (P.beta #[x]))
+        withLocalDeclD `hT hTTy fun hT => do
+          let pick ← withLocalDeclD `R X fun R => withLocalDeclD `hR (mkApp T R) fun hR =>
+            mkLambdaFVars #[R, hR] (mkAppN (mkApp2 hT R hR) xs)
+          let iff ← mkAppOptM lem
+            ((Array.replicate as.size none).push (some T) ++ as.map some)
+          mkLambdaFVars #[T, hT] (← mkLambdaFVars xs (← mkAppM ``Iff.mpr #[iff, pick]))
+      -- `∀ R, Chain b R → P R → P (b R)`
+      let hTy ← withLocalDeclD `R X fun R => do
+        let chain ← mkAppOptM ``Chain #[X, inst, b, R]
+        let bR ← mkAppOptM ``Mon.body #[X, inst, b, R]
+        mkForallFVars #[R] (← mkArrow chain (← mkArrow (P.beta #[R])
+          (← mkForallFVars xs (mkAppN bR as))))
+      return (P, hinf, hTy, gb)
+    let #[X, inst, b] := gb.getAppArgs | throwError "coinduction: unexpected `gfp` term"
+    let h ← mkFreshExprSyntheticOpaqueMVar hTy (← g.getTag)
+    let pf ← mkAppOptM ``gfp_prop #[X, inst, b, P,
+      ← mkAppOptM ``tower #[X, inst, b, P, hinf, h]]
+    unless ← isDefEq (← inferType pf) ty do
+      throwError "coinduction: could not match the goal with `{P} ({gb})`"
+    g.assign pf
+    replaceMainGoal [h.mvarId!]
+    let names ← #[R, hR, cih].mapM fun
+      | `(binderIdent| $i:ident) => pure (⟨i.raw⟩ : Term)
+      | _ => `(_)
+    evalTactic (← `(tactic| intro $names*))
+
+/-- `step` unfolds the goal one step: `gfp b args` becomes `b (gfp b) args`, and `R args` becomes
+`b R args` when a hypothesis `Chain b R` is in context (the head may be a definition unfolding to
+either form). -/
+syntax (name := stepTac) &"step" : tactic
+
+elab_rules : tactic
+  | `(tactic| step) => do
+    let g ← getMainGoal
+    g.withContext do
+    let ty ← instantiateMVars (← g.getType)
+    let (X, inst, b, x, hx, as) ← match ← gfpApp? ty with
+      | some (gb, as) =>
+        let #[X, inst, b] := gb.getAppArgs | throwError "step: unexpected `gfp` term"
+        pure (X, inst, b, gb, ← mkAppOptM ``gfp_chain #[X, inst, b], as)
+      | none =>
+        let e ← whnfR ty
+        let R := e.getAppFn
+        unless R.isFVar do throwError "step: the goal is neither `gfp b args` nor `R args`"
+        let some (X, inst, b, hx) ← (← getLCtx).findDeclRevM? fun d => do
+            if d.isImplementationDetail then return none
+            let t ← whnfR (← instantiateMVars d.type)
+            unless t.isAppOfArity ``Chain 4 && t.appArg! == R do return none
+            let #[X, inst, b, _] := t.getAppArgs | return none
+            return some (X, inst, b, d.toExpr)
+          | throwError "step: no hypothesis `Chain _ {R}` in context"
+        pure (X, inst, b, R, hx, e.getAppArgs)
+    let next ← mkFreshExprSyntheticOpaqueMVar
+      (mkAppN (← mkAppOptM ``Mon.body #[X, inst, b, x]) as) (← g.getTag)
+    let pf := mkAppN (← mkAppOptM ``b_chain #[X, inst, b, x, hx]) (as.push next)
+    unless ← isDefEq (← inferType pf) ty do throwError "step: could not unfold the goal"
+    g.assign pf
+    replaceMainGoal [next.mvarId!]
+
+end Tactics
+
+end Coinduction

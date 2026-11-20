@@ -113,9 +113,9 @@ theorem branchfree_unfold (t : CTree E B A) : BranchFree t ↔ branchfreeF Branc
 /-- A one-node invariant establishes branch freedom of the whole tree; clients need only
 classify their program's phases. -/
 theorem branchfree_invariant (R : CTree E B A → Prop)
-    (hstep : ∀ t, R t → branchfreeF R t.unfold) : ∀ t, R t → BranchFree t := fun t ht =>
-  coinduction₁ (b := fbranchfree) (fun i : {t // R t} => i.1)
-    (fun _ _ CIH ⟨t, ht⟩ => branchfreeF_mono (fun t' ht' => CIH ⟨t', ht'⟩) (hstep t ht)) ⟨t, ht⟩
+    (hstep : ∀ t, R t → branchfreeF R t.unfold) : ∀ t, R t → BranchFree t := by
+  coinduction _ _ CIH
+  exact fun t ht => branchfreeF_mono CIH (hstep t ht)
 
 theorem branchfree_equ_impl (t u : CTree E B A) (h : t = u) (ht : BranchFree t) :
     BranchFree u :=
@@ -166,15 +166,16 @@ theorem branchfree_bind (t : CTree E B X) (k : X → CTree E B A) (ht : BranchFr
   branchfree_bind_chain (gfp_chain _) t k ht hk
 
 theorem branchfree_iter {I : Type u} (body : I → CTree E B (I ⊕ A))
-    (hbody : ∀ i, BranchFree (body i)) : ∀ i, BranchFree (CTree.iter body i) :=
-  coinduction₁ (b := fbranchfree) (fun i => CTree.iter body i) fun R hR CIH i => by
-    rw [unfold_iter]
-    refine branchfree_bind_chain (.step hR) _ _ (hbody i) fun x => ?_
-    show branchfreeF R (match x with
-      | .inl l => CTree.guard (CTree.iter body l) | .inr r => pure r).unfold
-    cases x with
-    | inl l => simpa using .guard _ (CIH l)
-    | inr r => simpa using .ret r
+    (hbody : ∀ i, BranchFree (body i)) : ∀ i, BranchFree (CTree.iter body i) := by
+  coinduction R hR CIH
+  intro i
+  rw [unfold_iter]
+  refine branchfree_bind_chain (.step hR) _ _ (hbody i) fun x => ?_
+  show branchfreeF R (match x with
+    | .inl l => CTree.guard (CTree.iter body l) | .inr r => pure r).unfold
+  cases x with
+  | inl l => simpa using .guard _ (CIH l)
+  | inr r => simpa using .ret r
 
 end BranchFreedom
 

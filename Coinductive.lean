@@ -2,3 +2,4 @@
 module
 
 public import Coinductive.CoInd
+public import Coinductive.Tower

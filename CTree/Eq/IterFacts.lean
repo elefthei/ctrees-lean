@@ -57,16 +57,14 @@ theorem ssim_iter {A A' B B' : Type u} (L : Label E → Label F → Prop) (Ra : 
     (step : A → CTree E C (A ⊕ B)) (step' : A' → CTree F D (A' ⊕ B'))
     (hstep : ∀ a a', Ra a a' → ssim L0 (step a) (step' a')) :
     ∀ a a', Ra a a' → ssim L (CTree.iter step a) (CTree.iter step' a') := by
+  suffices H : ∀ a a', Ra a a' → ssim' L (CTree.iter step a) (CTree.iter step' a') from
+    fun a a' ha => ssim_ssim'.2 (H a a' ha)
+  coinduction R hR CH
   intro a a' ha
-  refine ssim_ssim'.2 (coinduction (b := ss' L)
-    (fun p : {p : A × A' // Ra p.1 p.2} => CTree.iter step p.1.1)
-    (fun p => CTree.iter step' p.1.2) ?_ ⟨(a, a'), ha⟩)
-  rintro R hR CH ⟨⟨a, a'⟩, ha⟩
-  show ss' L R (CTree.iter step a) (CTree.iter step' a')
   rw [unfold_iter, unfold_iter]
   refine ss'_chain_bind_gen HL0 (.step hR) _ _ _ _ (hstep a a' ha) ?_
   rintro (x | x) (y | y) h
-  · exact step_ss'_guard (CH ⟨(x, y), h⟩)
+  · exact step_ss'_guard (CH x y h)
   · exact h.elim
   · exact h.elim
   · exact step_ssbt'_ret hR ((HRb x y).1 h)
@@ -145,16 +143,15 @@ theorem sbisim_iter {A A' B B' : Type u} (L : Label E → Label F → Prop) (Ra 
     (step : A → CTree E C (A ⊕ B)) (step' : A' → CTree F D (A' ⊕ B'))
     (hstep : ∀ a a', Ra a a' → sbisim L0 (step a) (step' a')) :
     ∀ a a', Ra a a' → sbisim L (CTree.iter step a) (CTree.iter step' a') := by
-  intro a a' ha
-  refine sbisim_sbisim'.2 fun side => coinduction₃ (b := sb' L)
-    (fun p : Bool × {p : A × A' // Ra p.1 p.2} => p.1)
-    (fun p => CTree.iter step p.2.1.1) (fun p => CTree.iter step' p.2.1.2) ?_ (side, ⟨(a, a'), ha⟩)
-  rintro R hR CH ⟨side, ⟨a, a'⟩, ha⟩
-  show sb' L R side (CTree.iter step a) (CTree.iter step' a')
+  suffices H : ∀ side a a', Ra a a' →
+      gfp (sb' L) side (CTree.iter step a) (CTree.iter step' a') from
+    fun a a' ha => sbisim_sbisim'.2 fun side => H side a a' ha
+  coinduction R hR CH
+  intro side a a' ha
   rw [unfold_iter, unfold_iter]
   refine sbt'_clo_bind_gen HL0 hR (sbisim_sbisim'.1 (hstep a a' ha) side) ?_
   rintro (x | x) (y | y) h b
-  · exact step_sb'_guard (CH (b, ⟨(x, y), h⟩))
+  · exact step_sb'_guard (CH b x y h)
   · exact h.elim
   · exact h.elim
   · exact step_sb'_ret ((HRb x y).1 h) (fun s => b_chain hR s _ _ (sb'_stuck s)) b
@@ -175,9 +172,10 @@ theorem iter_dinatural_ctree_inner {X Y Z : Type u} (f : X → CTree E C (Y ⊕ 
             | .inl x => f x
             | .inr z => pure (.inr z)) y)
         | .inr z => pure z := by
-  refine sbisim_sbisim'.2 fun side => coinduction₃ (b := sb' Eq)
-    (fun p : Bool × X => p.1) (fun p => CTree.iter _ p.2) (fun p => f p.2 >>= _) ?_ (side, x)
-  rintro R hR CH ⟨side, x⟩
+  refine sbisim_sbisim'.2 fun side => ?_
+  revert side x
+  coinduction R hR CH
+  intro x side
   have hlp : ∀ (t : CTree E C (X ⊕ Z)) (K₁ K₂ : X ⊕ Z → CTree E C Z),
       (∀ r b, R b (K₁ r) (K₂ r)) → ∀ b, R b (t >>= K₁) (t >>= K₂) :=
     fun t _ _ h b => st'_clo_bind_eq hR (refl_sbisim' (fun _ => rfl) t b) h
@@ -191,7 +189,7 @@ theorem iter_dinatural_ctree_inner {X Y Z : Type u} (f : X → CTree E C (Y ⊕ 
             | .inr z => pure (.inr z)) y)
         | .inr z => pure z) r) := by
     rintro (x' | z) b
-    · exact step_sb'_guard_l' hR (fun s => CH (s, x')) b
+    · exact step_sb'_guard_l' hR (fun s => CH x' s) b
     · simp only [pure_bind]; exact step_sbt'_ret hR rfl b
   show sb' Eq R side _ _
   rw [iter_iter_gen, iter_gen, bind_assoc]
@@ -204,7 +202,7 @@ theorem iter_dinatural_ctree_inner {X Y Z : Type u} (f : X → CTree E C (Y ⊕ 
       cases r with
       | inl x' =>
         simp only [pure_bind]
-        exact step_sb'_guard (CH (b, x'))
+        exact step_sb'_guard (CH x' b)
       | inr z =>
         simp only [pure_bind]
         exact step_sb'_guard_r hR

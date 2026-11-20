@@ -480,16 +480,9 @@ theorem sbisim_schedule_policy (n : Nat) (v1 v2 : Pool E B n) (focus : Option (F
     (st : sch.sched_state) (b1 : pool_branchfree v1) (b2 : pool_branchfree v2)
     (p : pool_sbisim v1 v2) :
     schedule_policy sch n v1 focus st ~ schedule_policy sch n v2 focus st := by
-  refine coinduction (b := sb Eq)
-    (ι := (n : Nat) ×' (v1 : Pool E B n) ×' (v2 : Pool E B n) ×' (_ : Option (Fin n)) ×'
-      (_ : sch.sched_state) ×' (pool_branchfree v1 ∧ pool_branchfree v2 ∧ pool_sbisim v1 v2))
-    (fun i => schedule_policy sch i.1 i.2.1 i.2.2.2.1 i.2.2.2.2.1)
-    (fun i => schedule_policy sch i.1 i.2.2.1 i.2.2.2.1 i.2.2.2.2.1) ?_
-    ⟨n, v1, v2, focus, st, b1, b2, p⟩
-  rintro R hR CIH ⟨n, v1, v2, focus, st, b1, b2, p⟩
-  have Hch : ∀ n (v w : Pool E B n) f st, pool_branchfree v → pool_branchfree w →
-      pool_sbisim v w → R (schedule_policy sch n v f st) (schedule_policy sch n w f st) :=
-    fun n v w f st bv bw hp => CIH ⟨n, v, w, f, st, bv, bw, hp⟩
+  revert n v1 v2 focus st b1 b2 p
+  coinduction R hR Hch
+  intro n v1 v2 focus st b1 b2 p
   refine ⟨fun l q tr => ?_, fun l q tr => ?_⟩
   · obtain ⟨u, tu, hu⟩ := schedule_sb_phase_match sch hR Hch _ _ l q
       (.sbPhaseAt n v1 v2 focus st _ _ b1 b2 p rfl rfl) tr

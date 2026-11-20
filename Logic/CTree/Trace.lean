@@ -15,7 +15,7 @@ observation batches (`emit_batches`) (← `CTree/Trace.v`).
 
 @[expose] public section
 namespace Tisl
-open CTree Coinductive CTree.Coinduction
+open CTree Coinductive Coinduction
 open ITree (Effect)
 
 variable {E B : Effect.{u}} {W V I A X Y : Type u}
@@ -490,17 +490,15 @@ theorem emit_batches_bisim (batch : I → List W) (next : I → I) (Inv : I → 
     (hnonempty : ∀ i, Inv i → batch i ≠ [])
     (hroot : ∀ i, Inv i → root i ~ emit_list (batch i) (root (next i))) :
     ∀ i, Inv i → root i ~ (emit_batches batch next i : ctreeW W B X) := by
+  coinduction R hR cih
   intro i hi
-  refine coinduction (b := sb Eq) (ι := {i // Inv i}) (fun i => root i.1)
-    (fun i => emit_batches batch next i.1) ?_ ⟨i, hi⟩
-  rintro R hR cih ⟨i, hi⟩
   refine sbisim_clos_sb (.step hR) _ _ (emit_list (batch i) (emit_batches batch next (next i)))
     _ (hroot i hi) ?_ (sbisim_symm (emit_batches_unfold_sbisim batch next i))
   match hb : batch i, hnonempty i hi with
   | o :: rest, _ =>
     simp only [emit_list_cons]
     exact step_sb_vis_id_gen (E := writerE W) o _ _ fun _ =>
-      ⟨emit_list_chain hR rest (cih ⟨next i, hnext i hi⟩), rfl⟩
+      ⟨emit_list_chain hR rest (cih (next i) (hnext i hi)), rfl⟩
 
 theorem emit_batches_prefix_sbisim (batch : I → List W) (next : I → I) (n : Nat) (i : I) :
     (emit_batches batch next i : ctreeW W B X) ~
@@ -528,13 +526,11 @@ theorem sbisim_step_family (left right : I → CTree E B X) (body : I → CTree 
     (hright : ∀ i, Inv i → right i ~ (body i >>= fun a => .step (right (next i a))))
     (hnext : ∀ i a, Inv i → Inv (next i a)) :
     ∀ i, Inv i → left i ~ right i := by
+  coinduction R hR cih
   intro i hi
-  refine coinduction (b := sb Eq) (ι := {i // Inv i}) (fun i => left i.1) (fun i => right i.1)
-    ?_ ⟨i, hi⟩
-  rintro R hR cih ⟨i, hi⟩
   refine sbisim_clos_sb (.step hR) _ _ _ _ (hleft i hi) ?_ (sbisim_symm (hright i hi))
   exact sb_chain_bind_eq (.step hR) (body i) fun a =>
-    step_sb_step_gen rfl (cih ⟨next i a, hnext i a hi⟩)
+    step_sb_step_gen rfl (cih (next i a) (hnext i a hi))
 
 /-- Identical bodies and logged scheduler picks yield bisimilar families. -/
 theorem sbisim_log_family (left right : I → ctreeW W B X) (body : I → ctreeW W B A)
@@ -545,13 +541,11 @@ theorem sbisim_log_family (left right : I → ctreeW W B X) (body : I → ctreeW
       right i ~ (body i >>= fun a => .vis (E := writerE W) (pick i) fun _ => right (next i a)))
     (hnext : ∀ i a, Inv i → Inv (next i a)) :
     ∀ i, Inv i → left i ~ right i := by
+  coinduction R hR cih
   intro i hi
-  refine coinduction (b := sb Eq) (ι := {i // Inv i}) (fun i => left i.1) (fun i => right i.1)
-    ?_ ⟨i, hi⟩
-  rintro R hR cih ⟨i, hi⟩
   refine sbisim_clos_sb (.step hR) _ _ _ _ (hleft i hi) ?_ (sbisim_symm (hright i hi))
   exact sb_chain_bind_eq (.step hR) (body i) fun a =>
-    step_sb_vis_id_gen (E := writerE W) (pick i) _ _ fun _ => ⟨cih ⟨next i a, hnext i a hi⟩, rfl⟩
+    step_sb_vis_id_gen (E := writerE W) (pick i) _ _ fun _ => ⟨cih (next i a) (hnext i a hi), rfl⟩
 
 -- Not ported: nothing (every Rocq declaration has a Lean counterpart; `≅` lemmas such as
 -- `emit_list_equ`, `rr_guards_equ`, `rr_prefix_equ`, `rr_aligned_equ` are kept as `=` lemmas).

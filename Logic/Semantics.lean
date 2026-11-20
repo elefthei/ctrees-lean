@@ -2,7 +2,7 @@
 module
 
 public import Logic.Syntax
-public import CTree.Coinduction
+public import Coinductive.Tower
 
 /-!
 # TICL semantics
@@ -15,7 +15,7 @@ until modalities `Auc`/`Euc`, the coinductive always modalities `agc`/`egc`, and
 @[expose] public section
 namespace Tisl
 open ITree (Effect)
-open CTree.Coinduction
+open Coinduction
 
 variable {M : Effect.{u} → Effect.{u} → Type u → Type u} {E B : Effect.{u}} [Kripke M E B]
   {X : Type u}

@@ -249,8 +249,9 @@ theorem framable_bind {X A : Type u} (t : CTree E B X) (k : X → CTree E B A)
 
 /-- Iteration of framable bodies is framable. -/
 theorem framable_iter {I A : Type u} (body : I → CTree E B (I ⊕ A))
-    (h : ∀ i, Framable okE (body i)) : ∀ i, Framable okE (CTree.iter body i) :=
-  coinduction₁ (b := fframable okE) (fun i => CTree.iter body i) fun R hR IH i => by
+    (h : ∀ i, Framable okE (body i)) : ∀ i, Framable okE (CTree.iter body i) := by
+    coinduction R hR IH
+    intro i
     rw [unfold_iter]
     refine framable_bind_chain okE (.step hR) (body i) _ (h i) ?_
     rintro (i' | a)

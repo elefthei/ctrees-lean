@@ -47,39 +47,38 @@ theorem guards_to_step_interp {X : Type u} (t : CTree E B X) (ht : guards_to_ste
 /-- Framability survives interpretation with framable handler responses. -/
 theorem framable_interp {X : Type u} (okE : E.I → Prop) (okF : F.I → Prop)
     (Hh : ∀ e, okE e → Framable okF (h e)) :
-    ∀ t : CTree E B X, Framable okE t → Framable okF (interp h t) := fun t ht =>
-  coinduction₁ (b := fframable okF) (fun i : {t : CTree E B X // Framable okE t} => interp h i.1)
-    (fun R hR IH ⟨t, ht⟩ => by
-      have guard_R : ∀ s, Framable okE s → R (.guard (interp h s)) := fun s hs =>
-        b_chain hR _ (show framableF okF R (CTree.guard _).unfold by
-          rw [unfold_guard]; exact .guard _ (IH ⟨s, hs⟩))
-      show framableF okF R (interp h t).unfold
-      have Ht := (framable_unfold okE t).1 ht
-      cases t with
-      | ret x => rw [interp_ret, unfold_pure]; exact .ret x
-      | stuck => rw [interp_stuck, unfold_stuck]; exact .stuck
-      | step s =>
-        rw [unfold_step] at Ht; cases Ht with
-        | step _ hs => rw [interp_step, unfold_step]; exact .step _ (guard_R s hs)
-      | guard s =>
-        rw [unfold_guard] at Ht; cases Ht with
-        | guard _ hs => rw [interp_guard, unfold_guard]; exact .guard _ (IH ⟨s, hs⟩)
-      | vis e k =>
-        rw [unfold_vis] at Ht; cases Ht with
-        | vis _ _ he hk =>
-          rw [interp_vis]
-          exact framable_bind_chain okF (.step hR) (h e) _ (Hh e he) fun x =>
-            show framableF okF R (CTree.guard _).unfold by
-              rw [unfold_guard]; exact .guard _ (IH ⟨k x, hk x⟩)
-      | br c k =>
-        rw [unfold_br] at Ht; cases Ht with
-        | br _ _ hg hk =>
-          rw [interp_br']
-          show framableF okF R (CTree.br c fun x => .guard (interp h (k x))).unfold
-          rw [unfold_br]
-          exact .br c _ (fun y => guards_to_step_guard _ (guards_to_step_interp h _ (hg y)))
-            fun y => guard_R _ (hk y))
-    ⟨t, ht⟩
+    ∀ t : CTree E B X, Framable okE t → Framable okF (interp h t) := by
+  coinduction R hR IH
+  intro t ht
+  have guard_R : ∀ s, Framable okE s → R (.guard (interp h s)) := fun s hs =>
+    b_chain hR _ (show framableF okF R (CTree.guard _).unfold by
+      rw [unfold_guard]; exact .guard _ (IH s hs))
+  show framableF okF R (interp h t).unfold
+  have Ht := (framable_unfold okE t).1 ht
+  cases t with
+  | ret x => rw [interp_ret, unfold_pure]; exact .ret x
+  | stuck => rw [interp_stuck, unfold_stuck]; exact .stuck
+  | step s =>
+    rw [unfold_step] at Ht; cases Ht with
+    | step _ hs => rw [interp_step, unfold_step]; exact .step _ (guard_R s hs)
+  | guard s =>
+    rw [unfold_guard] at Ht; cases Ht with
+    | guard _ hs => rw [interp_guard, unfold_guard]; exact .guard _ (IH s hs)
+  | vis e k =>
+    rw [unfold_vis] at Ht; cases Ht with
+    | vis _ _ he hk =>
+      rw [interp_vis]
+      exact framable_bind_chain okF (.step hR) (h e) _ (Hh e he) fun x =>
+        show framableF okF R (CTree.guard _).unfold by
+          rw [unfold_guard]; exact .guard _ (IH (k x) (hk x))
+  | br c k =>
+    rw [unfold_br] at Ht; cases Ht with
+    | br _ _ hg hk =>
+      rw [interp_br']
+      show framableF okF R (CTree.br c fun x => .guard (interp h (k x))).unfold
+      rw [unfold_br]
+      exact .br c _ (fun y => guards_to_step_guard _ (guards_to_step_interp h _ (hg y)))
+        fun y => guard_R _ (hk y)
 
 end InterpFramable
 
@@ -128,21 +127,16 @@ theorem framable_schedule [Bn -< B] (sch : Scheduler) (n : Nat) (ts : Pool E B n
     (focus : Option (Fin n)) (st : sch.sched_state) (hbf : pool_branchfree ts)
     (hfr : pool_framable okE ts) :
     Framable okE (project_scheduled (schedule_policy sch n ts focus st)) := by
-  let P : CTree E B PUnit → Prop := fun x => ∃ (n : Nat) (ts : Pool E B n) (focus : Option (Fin n))
-    (st : sch.sched_state), pool_branchfree ts ∧ pool_framable okE ts ∧
-      x = project_scheduled (schedule_policy sch n ts focus st)
-  refine coinduction₁ (b := fframable okE) (fun i : {x // P x} => i.1) ?_
-    ⟨_, n, ts, focus, st, hbf, hfr, rfl⟩
-  rintro R hR IH ⟨_, n, ts, focus, st, hbf, hfr, rfl⟩
-  have ih : ∀ n (ts : Pool E B n) focus st, pool_branchfree ts → pool_framable okE ts →
-      R (project_scheduled (schedule_policy sch n ts focus st)) :=
-    fun n ts focus st hb hf => IH ⟨_, n, ts, focus, st, hb, hf, rfl⟩
+  revert n ts focus st hbf hfr
+  coinduction R hR ih
+  intro n ts focus st hbf hfr
   have guard_R : ∀ x, R x → R (.guard x) := fun x hx => b_chain hR _
     (show framableF okE R (CTree.guard _).unfold by rw [unfold_guard]; exact .guard _ hx)
   have sched_R : ∀ j (k : PUnit → CTree (E ⊕ₑ schedE) B PUnit), R (project_scheduled (k ⟨⟩)) →
       R (project_scheduled (.vis (.inr j) k)) := fun j k hk => by
     rw [project_scheduled_scheduled]
-    exact b_chain hR _ (show framableF okE R (CTree.step _).unfold by
+    step
+    exact (show framableF okE R (CTree.step _).unfold by
       rw [unfold_step]; exact .step _ (guard_R _ hk))
   have sched_gts : ∀ j (k : PUnit → CTree (E ⊕ₑ schedE) B PUnit),
       guards_to_step (project_scheduled (.vis (.inr j) k)) := fun j k =>
@@ -228,15 +222,9 @@ theorem framable_schedule_rr {E : Effect.{0}} (okE : E.I → Prop) (n : Nat) (ts
   -- `schedule_rr` keeps the cursor at type `Nat` (`rr_scheduler.sched_state` does not reduce
   -- under `rw`).
   show Framable _ (schedule_rr n ts focus cursor)
-  let P : Completed E Bn → Prop := fun x => ∃ (n : Nat) (ts : Pool E Bn n)
-    (focus : Option (Fin n)) (cursor : Nat), pool_branchfree ts ∧ pool_framable okE ts ∧
-      x = schedule_rr n ts focus cursor
-  refine coinduction₁ (b := fframable (okE_policy okE)) (fun i : {x // P x} => i.1) ?_
-    ⟨_, n, ts, focus, cursor, hbf, hfr, rfl⟩
-  rintro R hR IH ⟨_, n, ts, focus, cursor, hbf, hfr, rfl⟩
-  have ih : ∀ n (ts : Pool E Bn n) focus cursor, pool_branchfree ts → pool_framable okE ts →
-      R (schedule_rr n ts focus cursor) :=
-    fun n ts focus cursor hb hf => IH ⟨_, n, ts, focus, cursor, hb, hf, rfl⟩
+  revert n ts focus cursor hbf hfr
+  coinduction R _ ih
+  intro n ts focus cursor hbf hfr
   show framableF (okE_policy okE) R (schedule_rr n ts focus cursor).unfold
   rcases focus with _ | i
   · cases n with
@@ -300,30 +288,29 @@ theorem guards_to_step_translate (f : (e : E.I) → (f : F.I) × (F.O f → E.O 
 admissible events (shared body of the two `framable_translate_*` theorems). -/
 private theorem framable_translate (f : (e : E.I) → (f : F.I) × (F.O f → E.O e))
     (okE : E.I → Prop) (okF : F.I → Prop) (hf : ∀ e, okE e → okF (f e).1) :
-    ∀ t : CTree E B X, Framable okE t → Framable okF (translate f t) := fun t ht =>
-  coinduction₁ (b := fframable okF) (fun i : {t : CTree E B X // Framable okE t} => translate f i.1)
-    (fun R _ IH ⟨t, ht⟩ => by
-      show framableF okF R (translate f t).unfold
-      have Ht := (framable_unfold okE t).1 ht
-      cases t with
-      | ret x => rw [translate_ret, unfold_pure]; exact .ret x
-      | stuck => rw [translate_stuck, unfold_stuck]; exact .stuck
-      | step s =>
-        rw [unfold_step] at Ht; cases Ht with
-        | step _ hs => rw [translate_step, unfold_step]; exact .step _ (IH ⟨s, hs⟩)
-      | guard s =>
-        rw [unfold_guard] at Ht; cases Ht with
-        | guard _ hs => rw [translate_guard, unfold_guard]; exact .guard _ (IH ⟨s, hs⟩)
-      | vis e k =>
-        rw [unfold_vis] at Ht; cases Ht with
-        | vis _ _ he hk =>
-          rw [translate_vis, unfold_vis]; exact .vis _ _ (hf e he) fun x => IH ⟨_, hk _⟩
-      | br c k =>
-        rw [unfold_br] at Ht; cases Ht with
-        | br _ _ hg hk =>
-          rw [translate_br, unfold_br]
-          exact .br c _ (fun y => guards_to_step_translate f _ (hg y)) fun y => IH ⟨_, hk y⟩)
-    ⟨t, ht⟩
+    ∀ t : CTree E B X, Framable okE t → Framable okF (translate f t) := by
+  coinduction R _ IH
+  intro t ht
+  show framableF okF R (translate f t).unfold
+  have Ht := (framable_unfold okE t).1 ht
+  cases t with
+  | ret x => rw [translate_ret, unfold_pure]; exact .ret x
+  | stuck => rw [translate_stuck, unfold_stuck]; exact .stuck
+  | step s =>
+    rw [unfold_step] at Ht; cases Ht with
+    | step _ hs => rw [translate_step, unfold_step]; exact .step _ (IH s hs)
+  | guard s =>
+    rw [unfold_guard] at Ht; cases Ht with
+    | guard _ hs => rw [translate_guard, unfold_guard]; exact .guard _ (IH s hs)
+  | vis e k =>
+    rw [unfold_vis] at Ht; cases Ht with
+    | vis _ _ he hk =>
+      rw [translate_vis, unfold_vis]; exact .vis _ _ (hf e he) fun x => IH _ (hk _)
+  | br c k =>
+    rw [unfold_br] at Ht; cases Ht with
+    | br _ _ hg hk =>
+      rw [translate_br, unfold_br]
+      exact .br c _ (fun y => guards_to_step_translate f _ (hg y)) fun y => IH _ (hk y)
 
 /-- Embedding a tree's events under a right summand preserves framability. -/
 theorem framable_translate_inr1 (okE : E.I → Prop) (t : CTree E B X) (ht : Framable okE t) :

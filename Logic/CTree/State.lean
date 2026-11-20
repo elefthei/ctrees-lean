@@ -451,10 +451,10 @@ theorem ag_state_iter {X I : Type u} (R : I → S → World (writerE W) → Prop
           ∃ i', p.1 = .inl i' ∧ NotDone w' ∧ R i' p.2 w')) (interp_state h (k i) s) w) :
     entails (AG φ) (interp_state h (CTree.iter k i) σ) w := by
   have hP : SbProper (entails (X := X × S) (B := B) φ) := fun _ h => proper_entails_meq φ h
-  refine coinduction (b := agcF (entails φ))
-    (fun p : (Σ' i s w, NotDone w ∧ R i s w) => interp_state h (CTree.iter k p.1) p.2.1)
-    (fun p => p.2.2.1) (fun RR hRR CIH => ?_) ⟨i, σ, w, hd, hR⟩
-  rintro ⟨i, s, w, hd, hR⟩
+  suffices Hc : ∀ i s w, NotDone w → R i s w →
+      entails (AG φ) (interp_state h (CTree.iter k i) s) w from Hc i σ w hd hR
+  coinduction RR hRR CIH
+  intro i s w hd hR
   obtain ⟨hφ, -, ⟨k', wk, tr⟩, hn⟩ := H i s w hd hR
   refine ⟨hφ, ?_, fun t' w' htr => ?_⟩
   · rw [interp_state_unfold_iter]
@@ -464,7 +464,7 @@ theorem ag_state_iter {X I : Type u} (R : I → S → World (writerE W) → Prop
     · refine ag_bind_chain hRR (hn _ _ tr₀) fun ⟨lr, s'⟩ z ⟨j, hlr, hd', hj⟩ => ?_
       obtain rfl : lr = .inl j := hlr
       exact (agc_chain_proper (P := entails φ) (fun _ _ _ h => hP _ h) RR hRR _ _ _
-        (sb_guard _)).2 (CIH ⟨j, s', z, hd', hj⟩)
+        (sb_guard _)).2 (CIH j s' z hd' hj)
     · obtain ⟨_, _, -, hs, -⟩ := (au_stuck (φ := φ)).2 (hn _ _ tr₀)
       exact (can_step_stuck hs).elim
 
@@ -501,14 +501,11 @@ theorem ag_state_iter_logs {X I : Type u} (Inv : I → S → Prop) {k : I → CT
       intro i s w hinv hw
       rw [emit_list_cons]
       exact Hlog o _ w hw (ih i s _ hinv (.obs _ _))
-  have Hsuffix := coinduction (b := agcF (entails φ))
-    (fun p : (Σ' (i : I) (s : S) (pending : List W) (w : World (writerE W)), Inv i s ∧ NotDone w)
-      => emit_list p.2.2.1 (interp_state h (CTree.iter k p.1) p.2.1))
-    (fun p => p.2.2.2.1) ?_
-  · intro i s w hinv hw
-    exact Hsuffix ⟨i, s, [], w, hinv, hw⟩
-  intro RR hRR CIH
-  rintro ⟨i, s, pending, w, hinv, hw⟩
+  suffices Hsuffix : ∀ i s (pending : List W) w, Inv i s → NotDone w →
+      entails (AG φ) (emit_list pending (interp_state h (CTree.iter k i) s)) w from
+    fun i s w hinv hw => Hsuffix i s [] w hinv hw
+  coinduction RR hRR CIH
+  intro i s pending w hinv hw
   have Hfront : ∃ j s' o rest, Inv j s' ∧
       emit_list pending (interp_state h (CTree.iter k i) s) ~
         CTree.vis (E := writerE W) o fun _ =>
@@ -526,7 +523,7 @@ theorem ag_state_iter_logs {X I : Type u} (Inv : I → S → Prop) {k : I → CT
   refine ⟨Hlog o _ w hw (Hpref rest j s' _ hj (.obs _ _)), (can_step_vis PUnit.unit).2 hw,
     fun t' w' tr => ?_⟩
   obtain ⟨_, rfl, rfl, -⟩ := ktrans_vis.1 tr
-  exact CIH ⟨j, s', rest, _, hj, .obs _ _⟩
+  exact CIH j s' rest _ hj (.obs _ _)
 
 /-- Loop invariant for `EG` (lifts `eg_iter`). -/
 theorem eg_state_iter {X I : Type u} (R : I → S → World (writerE W) → Prop) {i : I}
@@ -538,10 +535,10 @@ theorem eg_state_iter {X I : Type u} (R : I → S → World (writerE W) → Prop
           ∃ i', p.1 = .inl i' ∧ NotDone w' ∧ R i' p.2 w')) (interp_state h (k i) s) w) :
     entails (EG φ) (interp_state h (CTree.iter k i) σ) w := by
   have hP : SbProper (entails (X := X × S) (B := B) φ) := fun _ h => proper_entails_meq φ h
-  refine coinduction (b := egcF (entails φ))
-    (fun p : (Σ' i s w, NotDone w ∧ R i s w) => interp_state h (CTree.iter k p.1) p.2.1)
-    (fun p => p.2.2.1) (fun RR hRR CIH => ?_) ⟨i, σ, w, hd, hR⟩
-  rintro ⟨i, s, w, hd, hR⟩
+  suffices Hc : ∀ i s w, NotDone w → R i s w →
+      entails (EG φ) (interp_state h (CTree.iter k i) s) w from Hc i σ w hd hR
+  coinduction RR hRR CIH
+  intro i s w hd hR
   obtain ⟨hφ, -, k', wk, tr, hn⟩ := H i s w hd hR
   change enc _ RR (interp_state h (CTree.iter k i) s) w
   rw [interp_state_unfold_iter] at hφ ⊢
@@ -549,7 +546,7 @@ theorem eg_state_iter {X I : Type u} (R : I → S → World (writerE W) → Prop
     eg_bind_chain hRR hn fun ⟨lr, s'⟩ z ⟨j, hlr, hd', hj⟩ => ?_⟩
   obtain rfl : lr = .inl j := hlr
   exact (egc_chain_proper (P := entails φ) (fun _ _ _ h => hP _ h) RR hRR _ _ _
-    (sb_guard _)).2 (CIH ⟨j, s', z, hd', hj⟩)
+    (sb_guard _)).2 (CIH j s' z hd' hj)
 
 /-! ## Natural-number ranks -/
 

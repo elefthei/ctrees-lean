@@ -2,7 +2,7 @@
 module
 
 public import CTree.Eq.Trans
-public import CTree.Coinduction
+public import Coinductive.Tower
 
 /-!
 # Strong simulation
@@ -12,7 +12,7 @@ play of the right tree, with labels related by `L`. `ssim L` is its greatest fix
 (← `Eq/SSim.v`). `CTree` is extensional, so the Rocq up-to-`equ` closures are trivial and omitted.
 
 Rocq `step` on a goal `ssim L t u` is `ssim_unfold.2`; on a hypothesis it is `ssim_unfold.1`.
-Coinduction is `Coinduction.coinduction (b := ss L)`; chain elements are unfolded with `b_chain hR`.
+Coinduction is the `coinduction R hR CIH` tactic; chain elements are unfolded with `step`.
 -/
 
 @[expose] public section
@@ -460,12 +460,10 @@ theorem ssim_brS_id {c : C.I} {d : D.I} (hO : D.O d = C.O c) {k : C.O c → CTre
 
 /-- Visible `n`-ary spins simulate each other when the target spin has a branch. -/
 theorem ssim_spinS_gen_nonempty {c : C.I} {d : D.I} (y : D.O d) (hL : L .tau .tau) :
-    ssim L (CTree.spinS_gen c : CTree E C X) (CTree.spinS_gen d : CTree F D Y) :=
-  coinduction (b := ss L) (fun _ : Unit => (CTree.spinS_gen c : CTree E C X))
-    (fun _ => (CTree.spinS_gen d : CTree F D Y)) (by
-      intro R _ CIH _
-      rw [unfold_spinS_gen c, unfold_spinS_gen d]
-      exact step_ss_brS_gen (fun _ => ⟨y, CIH ()⟩) hL) ()
+    ssim L (CTree.spinS_gen c : CTree E C X) (CTree.spinS_gen d : CTree F D Y) := by
+  coinduction _ _ CIH
+  rw [unfold_spinS_gen c, unfold_spinS_gen d]
+  exact step_ss_brS_gen (fun _ => ⟨y, CIH⟩) hL
 
 /-! ### Inversion principles -/
 

@@ -26,16 +26,15 @@ variable {E B : Effect.{u}} {W I X : Type u}
 theorem ag_step_family (family : I → CTree E B X) (next : I → I)
     (hstep : ∀ i, family i ~ .step (family (next i))) :
     ∀ i w, NotDone w → entails (AG (⊤ : TiclL E)) (family i) w := by
-  intro i w hw
-  refine coinduction (b := agcF (entails (⊤ : TiclL E)))
-    (ι := {p : CTree E B X × World E // ∃ j, p.1 ~ family j ∧ NotDone p.2})
-    (fun p => p.1.1) (fun p => p.1.2) ?_ ⟨(family i, w), i, sbisim_refl _, hw⟩
-  rintro R - cih ⟨⟨t, w⟩, j, ht, hw⟩
+  suffices H : ∀ j t w, t ~ family j → NotDone w → entails (AG (⊤ : TiclL E)) t w from
+    fun i w hw => H i _ w (sbisim_refl _) hw
+  coinduction R _ cih
+  intro j t w ht hw
   have ht' := sbisim_trans ht (hstep j)
   refine ⟨⟨trivial, hw⟩, (proper_can_step ht').2 (can_step_step.2 hw), fun t' w' tr => ?_⟩
   obtain ⟨u, tr, hu⟩ := ktrans_semiproper ht' tr
   obtain ⟨rfl, rfl, -⟩ := ktrans_step.1 tr
-  exact cih ⟨(t', w), next j, hu, hw⟩
+  exact cih (next j) t' w hu hw
 
 /-- A family of visible steps never reaches a matching observation from `pure`. -/
 theorem step_family_no_ef_visible (family : I → ctreeW W B X) (next : I → I)
@@ -56,17 +55,17 @@ theorem step_family_no_ef_visible (family : I → ctreeW W B X) (next : I → I)
 theorem ag_log_family (family : I → ctreeW W B X) (next : I → I) (pick : I → W)
     (hlog : ∀ i, family i ~ .vis (E := writerE W) (pick i) fun _ => family (next i)) :
     ∀ i w, NotDone w → entails (AG (⊤ : TiclL (writerE W))) (family i) w := by
-  intro i w hw
-  refine coinduction (b := agcF (entails (⊤ : TiclL (writerE W))))
-    (ι := {p : ctreeW W B X × World (writerE W) // ∃ j, p.1 ~ family j ∧ NotDone p.2})
-    (fun p => p.1.1) (fun p => p.1.2) ?_ ⟨(family i, w), i, sbisim_refl _, hw⟩
-  rintro R - cih ⟨⟨t, w⟩, j, ht, hw⟩
+  suffices H : ∀ j t w, t ~ family j → NotDone w →
+      entails (AG (⊤ : TiclL (writerE W))) t w from
+    fun i w hw => H i _ w (sbisim_refl _) hw
+  coinduction R _ cih
+  intro j t w ht hw
   have ht' := sbisim_trans ht (hlog j)
   refine ⟨⟨trivial, hw⟩, (proper_can_step ht').2
     ((can_step_vis (E := writerE W) (e := pick j) ⟨⟩).2 hw), fun t' w' tr => ?_⟩
   obtain ⟨u, tr, hu⟩ := ktrans_semiproper ht' tr
   obtain ⟨_, hw', rfl, -⟩ := ktrans_vis.1 tr
-  exact cih ⟨(t', w'), next j, hu, hw' ▸ .obs _ _⟩
+  exact cih (next j) t' w' hu (hw' ▸ .obs _ _)
 
 /-- A family logging only rejected payloads never reaches a matching observation. -/
 theorem log_family_no_ef_visible (family : I → ctreeW W B X) (next : I → I) (pick : I → W)
@@ -154,15 +153,13 @@ theorem eventually_label_sbisim (P : Label E → Prop) (t u : CTree E B X) :
 
 theorem recurrent_label_sbisim (P : Label E → Prop) (t u : CTree E B X) :
     t ~ u → RecurrentLabel P t → RecurrentLabel P u := by
-  intro hsb h
-  refine coinduction₁ (b := recurrentLabelF P)
-    (ι := {u : CTree E B X // ∃ t, t ~ u ∧ RecurrentLabel P t}) (fun u => u.1) ?_
-    ⟨u, t, hsb, h⟩
-  rintro R - cih ⟨u, t, hsb, h⟩
+  revert t u
+  coinduction R _ cih
+  intro t u hsb h
   obtain ⟨he, hnext⟩ := recurrent_label_unfold.1 h
   refine ⟨eventually_label_sbisim P t u hsb he, fun l v tr => ?_⟩
   obtain ⟨_, t', tr', hv, rfl⟩ := (sbisim_unfold.1 hsb).2 _ _ tr
-  exact cih ⟨v, t', hv, hnext _ _ tr'⟩
+  exact cih t' v hv (hnext _ _ tr')
 
 /-- A false remembered target forces a future matching label. -/
 theorem af_vis_eventually_label {B : Effect.{u}} (P Q : W → Prop) (P_dec : ∀ o, Decidable (P o))
@@ -198,11 +195,9 @@ theorem agaf_family_recurrent_label {B : Effect.{u}} (P : W → Prop) (Q : Nat �
     (P_dec : ∀ o, Decidable (P o)) (Q_P : ∀ k o, Q k o → P o)
     (Q_separates : ∀ o, ∃ k, ¬ Q k o) (t : ctreeW W B X) (w : World (writerE W)) :
     (∀ k, entails (AG (AF (visWₜ (Q k)))) t w) → RecurrentLabel (log_label P) t := by
-  intro hfam
-  refine coinduction₁ (b := recurrentLabelF (log_label P))
-    (ι := {p : ctreeW W B X × World (writerE W) //
-      ∀ k, entails (AG (AF (visWₜ (Q k)))) p.1 p.2}) (fun p => p.1.1) ?_ ⟨(t, w), hfam⟩
-  rintro R - cih ⟨⟨t, w⟩, hfam⟩
+  revert t w
+  coinduction R _ cih
+  intro t w hfam
   have hlive : NotDone w := ticl_not_done _ (hfam 0)
   have hcut : ∃ k, ¬ entails (visWₜ (Q k)) t w := by
     cases hlive with
@@ -215,8 +210,8 @@ theorem agaf_family_recurrent_label {B : Effect.{u}} (P : W → Prop) (Q : Nat �
     (agc_unfold.1 (hfam k)).1, fun l u tr => ?_⟩
   have hnext k' := (agc_unfold.1 (hfam k')).2.2
   cases l with
-  | tau => exact cih ⟨(u, w), fun k' => hnext k' u w (.tau hlive tr)⟩
-  | obs o v => exact cih ⟨(u, _), fun k' => hnext k' u _ (.obs o v hlive tr)⟩
+  | tau => exact cih u w fun k' => hnext k' u w (.tau hlive tr)
+  | obs o v => exact cih u _ fun k' => hnext k' u _ (.obs o v hlive tr)
   | val x =>
     obtain rfl := trans_val_invT tr
     exfalso
@@ -321,13 +316,13 @@ theorem emit_batches_agaf {B : Effect.{u}} (batch : I → List W) (next : I → 
     (hprogress : ∀ i, Inv i → (∃ o, o ∈ batch i ∧ P o) ∨ rank (next i) < rank i) :
     ∀ i w, Inv i → NotDone w →
       entails (AG (AF (visWₜ P))) (emit_batches batch next i : ctreeW W B X) w := by
-  intro i w hi hd
+  suffices H : ∀ j suffix (t : ctreeW W B X) v, Inv j → NotDone v →
+      t ~ emit_list suffix (emit_batches batch next j) →
+      entails (AG (AF (visWₜ P))) t v from
+    fun i w hi hd => H i [] _ w hi hd (sbisim_refl _)
+  coinduction R _ cih
+  intro j suffix t v hj hv ht
   let L (j : I) : ctreeW W B X := emit_batches batch next j
-  refine coinduction (b := agcF (entails (AF (visWₜ P))))
-    (ι := {p : ctreeW W B X × World (writerE W) //
-      ∃ j suffix, Inv j ∧ NotDone p.2 ∧ p.1 ~ emit_list suffix (L j)})
-    (fun p => p.1.1) (fun p => p.1.2) ?_ ⟨(L i, w), i, [], hi, hd, sbisim_refl _⟩
-  rintro R - cih ⟨⟨t, v⟩, j, suffix, hj, hv, ht⟩
   have haf : entails (AF (visWₜ P)) t v :=
     (proper_entails_meq _ ht).2 (af_emit_list _ _ v P hv
       (emit_batches_af batch next Inv rank P hnext hprogress j _ hj (after_logs_not_done _ hv)))
@@ -345,7 +340,7 @@ theorem emit_batches_agaf {B : Effect.{u}} (batch : I → List W) (next : I → 
   obtain ⟨u, tr, hu⟩ := ktrans_semiproper ht' tr
   rw [emit_list_cons] at tr
   obtain ⟨_, hw', rfl, -⟩ := ktrans_vis.1 tr
-  exact cih ⟨(t', w'), j', rest, hj', hw' ▸ .obs _ _, hu⟩
+  exact cih j' rest t' w' hj' (hw' ▸ .obs _ _) hu
 
 -- Not ported: nothing. Deviation: `EventuallyLabel`'s constructor premise is `¬ P l → …` instead
 -- of Rocq's nested `P l ∨ …` (Lean rejects nested inductives through `Or` with bound variables);

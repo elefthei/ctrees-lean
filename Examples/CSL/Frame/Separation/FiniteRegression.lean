@@ -15,7 +15,7 @@ allocation/assignment (← `examples/CSL/Frame/Separation.v`, module `FiniteRegr
 
 @[expose] public section
 namespace Examples.CSL.Frame.Separation.FiniteRegression
-open CTree CTree.Coinduction Tisl Tisl.Heap Tisl.Ctx Tisl.CSL Tisl.Yield Tisl.Pcm Tisl.Notation
+open CTree Coinduction Tisl Tisl.Heap Tisl.Ctx Tisl.CSL Tisl.Yield Tisl.Pcm Tisl.Notation
 open CoCSL
 
 def fchild : CProg Unit :=

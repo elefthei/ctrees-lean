@@ -3,8 +3,9 @@
 Choice trees and the TICL temporal logic in Lean 4, ported from three Rocq developments:
 
 - [damien-pous/coinduction](https://github.com/damien-pous/coinduction): the companion and
-  coinduction tower of Pous, "Coinduction All the Way Up" (LICS 2016), in `CTree/Coinduction.lean`.
-  Every simulation and bisimulation below is a greatest fixpoint proved with it, up to enhancements.
+  coinduction tower of Pous, "Coinduction All the Way Up" (LICS 2016), with its `coinduction` and
+  `step` tactics, in `Coinductive/Tower.lean`. Every simulation and bisimulation below is a greatest
+  fixpoint proved with it, up to enhancements.
 - [vellvm/ctrees](https://github.com/vellvm/ctrees): choice trees (Chappe et al., POPL 2023), a
   coinductive model of nondeterministic, recursive and impure programs, in `CTree/`.
 - [vellvm/ticl](https://github.com/vellvm/ticl) (branch `lang/yield`): TICL, a temporal logic over
@@ -12,8 +13,9 @@ Choice trees and the TICL temporal logic in Lean 4, ported from three Rocq devel
   the CoCSL language, in `Logic/`, `Lang/` and `Examples/`.
 
 The coinductive types come from [coinductive-lean](https://github.com/ISTA-PLV/coinductive),
-vendored under `Coinductive/` and `ITree/`. There is no Mathlib dependency, and `lake build` checks
-everything. [PORTING.md](PORTING.md) maps Rocq files to Lean files and lists what was not ported.
+vendored as `Coinductive/CoInd.lean` and `ITree/`. There is no Mathlib dependency, and `lake build`
+checks everything. [PORTING.md](PORTING.md) maps Rocq files to Lean files and lists what was not
+ported.
 
 ## Install
 
@@ -98,5 +100,5 @@ CAS-based allocator each recur under every fair scheduler (`allocator_agaf_fair`
 
 ## License
 
-MIT ([LICENSE](LICENSE)), as is the Rocq original. The vendored files under `Coinductive/` and
+MIT ([LICENSE](LICENSE)), as is the Rocq original. The vendored files `Coinductive/CoInd.lean` and
 `ITree/` keep their Apache-2.0 headers; their license text is in [LICENSE-APACHE](LICENSE-APACHE).

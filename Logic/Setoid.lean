@@ -14,7 +14,7 @@ TICL formula, including suffix formulas with postconditions (← `Logic/Setoid.v
 @[expose] public section
 namespace Tisl
 open ITree (Effect)
-open CTree.Coinduction
+open Coinduction
 
 /-- `meq` is an equivalence on `M E B X` and the square
 `meq s t`, `ktrans s w s' w'` ⟹ `∃ t', ktrans t w t' w' ∧ meq s' t'` commutes. -/

@@ -278,13 +278,13 @@ theorem emit_turn_batches_agaf (batch : I → List (List W)) (next : I → I) (I
     (hprogress : ∀ i, Inv i → (∃ o, o ∈ (batch i).flatten ∧ P o) ∨ rank (next i) < rank i) :
     ∀ i w, Inv i → NotDone w →
       entails (AG (AF (visWₜ P))) (emit_turn_batches batch next i : ctreeW W B X) w := by
-  intro i w hi hd
+  suffices H : ∀ j logs suffix (t : ctreeW W B X) v, Inv j → NotDone v →
+      t ~ emit_list logs (emit_turns suffix (emit_turn_batches batch next j)) →
+      entails (AG (AF (visWₜ P))) t v from
+    fun i w hi hd => H i [] [] _ w hi hd (sbisim_refl _)
+  coinduction R _ cih
+  intro j logs suffix t v hj hv ht
   let L (j : I) : ctreeW W B X := emit_turn_batches batch next j
-  refine coinduction (b := agcF (entails (AF (visWₜ P))))
-    (ι := {p : ctreeW W B X × World (writerE W) //
-      ∃ j logs suffix, Inv j ∧ NotDone p.2 ∧ p.1 ~ emit_list logs (emit_turns suffix (L j))})
-    (fun p => p.1.1) (fun p => p.1.2) ?_ ⟨(L i, w), i, [], [], hi, hd, sbisim_refl _⟩
-  rintro R - cih ⟨⟨t, v⟩, j, logs, suffix, hj, hv, ht⟩
   have haf : entails (AF (visWₜ P)) t v :=
     (proper_entails_meq _ ht).2 (af_emit_list _ _ v P hv (af_emit_turns P _ _ _
       (after_logs_not_done _ hv) (emit_turn_batches_af batch next Inv rank P hnext hprogress j _
@@ -295,7 +295,7 @@ theorem emit_turn_batches_agaf (batch : I → List (List W)) (next : I → I) (I
     obtain ⟨u, tr, hu⟩ := ktrans_semiproper ht tr
     simp only [emit_list_cons] at tr
     obtain ⟨_, hw', rfl, -⟩ := ktrans_vis.1 tr
-    exact cih ⟨(t', w'), j, logs, suffix, hj, hw' ▸ .obs _ _, hu⟩
+    exact cih j logs suffix t' w' hj (hw' ▸ .obs _ _) hu
   | nil =>
     obtain ⟨ev, rest, j', hj', ht'⟩ : ∃ ev rest j', Inv j' ∧
         t ~ CTree.step (emit_list ev (emit_turns rest (L j'))) := by
@@ -311,7 +311,7 @@ theorem emit_turn_batches_agaf (batch : I → List (List W)) (next : I → I) (I
     refine ⟨haf, (proper_can_step ht').2 (can_step_step.2 hv), fun t' w' tr => ?_⟩
     obtain ⟨u, tr, hu⟩ := ktrans_semiproper ht' tr
     obtain ⟨rfl, rfl, -⟩ := ktrans_step.1 tr
-    exact cih ⟨(t', v), j', ev, rest, hj', hv, hu⟩
+    exact cih j' ev rest t' v hj' hv hu
 
 end EmitTurnBatches
 
@@ -429,11 +429,11 @@ theorem ag_pool_nd_invariance {G : Type} {n : Nat} (ts : Pool E B (n + 1)) (Inv 
     cases focus with
     | none => exact ⟨g, σ, [], hinv, sbisim_refl _⟩
     | some i => exact hfocus g σ i hinv
-  refine coinduction (b := agcF (entails φ))
-    (ι := {p : ctreeW W B (PUnit × Sg) × World (writerE W) //
-      NotDone p.2 ∧ ∃ (g : G) (σ : Sg) (logs : List W), Inv g σ ∧ p.1 ~ emit_list logs (N σ)})
-    (fun p => p.1.1) (fun p => p.1.2) ?_ ⟨(_, w), hw, g₀, σ₀, logs₀, hinv₀, h₀⟩
-  rintro R - cih ⟨⟨t, v⟩, hv, g, σ, logs, hinv, ht⟩
+  suffices H : ∀ (t : ctreeW W B (PUnit × Sg)) v g σ logs, NotDone v → Inv g σ →
+      t ~ emit_list logs (N σ) → entails (AG φ) t v from
+    H _ w g₀ σ₀ logs₀ hw hinv₀ h₀
+  coinduction R _ cih
+  intro t v g σ logs hv hinv ht
   have hnow : entails φ (emit_list logs (N σ)) v := by
     simpa using prefix_logs id φ hlog logs (N σ) (fun w hw => hφ g σ none w hinv hw) v hv
   refine ⟨(proper_entails_meq _ ht).2 hnow, ?_⟩
@@ -443,14 +443,14 @@ theorem ag_pool_nd_invariance {G : Type} {n : Nat} (ts : Pool E B (n + 1)) (Inv 
     obtain ⟨u, tr, hu⟩ := ktrans_semiproper ht tr
     simp only [emit_list_cons] at tr
     obtain ⟨_, hw', rfl, -⟩ := ktrans_vis.1 tr
-    exact cih ⟨(t', w'), hw' ▸ .obs _ _, g, σ, logs, hinv, hu⟩
+    exact cih t' w' g σ logs (hw' ▸ .obs _ _) hinv hu
   | nil =>
     have ht' := sbisim_trans ht (interp_schedule_nd_select handler n ts σ)
     refine ⟨(proper_can_step ht').2 (can_step_brSn.2 hv), fun t' w' tr => ?_⟩
     obtain ⟨u, tr, hu⟩ := ktrans_semiproper ht' tr
     obtain ⟨j, rfl, rfl, -⟩ := ktrans_brSn.1 tr
     obtain ⟨g', σ', logs', hinv', hj⟩ := hfocus g σ j hinv
-    exact cih ⟨(t', v), hv, g', σ', logs', hinv', sbisim_trans hu hj⟩
+    exact cih t' v g' σ' logs' hv hinv' (sbisim_trans hu hj)
 
 theorem aul_pool_nd_eventually {G V : Type} {n : Nat} (ts : Pool E B (n + 1))
     (Inv : G → Sg → Prop) (rank : G → V) (ltV : V → V → Prop) (P : W → Prop) :
@@ -509,12 +509,11 @@ theorem ag_pool_rr_invariance {G : Type} {n : Nat} (ts : Pool E Bn (n + 1))
     cases focus with
     | none => exact ⟨g, σ, [], hinv, sbisim_refl _⟩
     | some i => exact hfocus g σ i cursor hinv
-  refine coinduction (b := agcF (entails φ))
-    (ι := {p : ctreeW (W ⊕ Nat) Bn (PUnit × Sg) × World (writerE (W ⊕ Nat)) //
-      NotDone p.2 ∧ ∃ (g : G) (σ : Sg) (c : Nat) (logs : List W), Inv g σ ∧
-        p.1 ~ emit_list (logs.map .inl) (N c σ)})
-    (fun p => p.1.1) (fun p => p.1.2) ?_ ⟨(_, w), hw, g₀, σ₀, cursor, logs₀, hinv₀, h₀⟩
-  rintro R - cih ⟨⟨t, v⟩, hv, g, σ, c, logs, hinv, ht⟩
+  suffices H : ∀ (t : ctreeW (W ⊕ Nat) Bn (PUnit × Sg)) v g σ c (logs : List W), NotDone v →
+      Inv g σ → t ~ emit_list (logs.map .inl) (N c σ) → entails (AG φ) t v from
+    H _ w g₀ σ₀ cursor logs₀ hw hinv₀ h₀
+  coinduction R _ cih
+  intro t v g σ c logs hv hinv ht
   refine ⟨(proper_entails_meq _ ht).2
     (prefix_logs .inl φ hlog logs (N c σ) (fun w hw => hφ g σ none c w hinv hw) v hv), ?_⟩
   cases logs with
@@ -523,14 +522,14 @@ theorem ag_pool_rr_invariance {G : Type} {n : Nat} (ts : Pool E Bn (n + 1))
     obtain ⟨u, tr, hu⟩ := ktrans_semiproper ht tr
     simp only [List.map_cons, emit_list_cons] at tr
     obtain ⟨_, hw', rfl, -⟩ := ktrans_vis.1 tr
-    exact cih ⟨(t', w'), hw' ▸ .obs _ _, g, σ, c, logs, hinv, hu⟩
+    exact cih t' w' g σ c logs (hw' ▸ .obs _ _) hinv hu
   | nil =>
     have ht' := sbisim_trans ht (interp_schedule_rr_select handler n ts c σ)
     refine ⟨(proper_can_step ht').2 ((can_step_vis PUnit.unit).2 hv), fun t' w' tr => ?_⟩
     obtain ⟨u, tr, hu⟩ := ktrans_semiproper ht' tr
     obtain ⟨_, hw', rfl, -⟩ := ktrans_vis.1 tr
     obtain ⟨g', σ', logs', hinv', hj⟩ := hfocus g σ (rr_pick n c) (c + 1) hinv
-    exact cih ⟨(t', w'), hw' ▸ .obs _ _, g', σ', c + 1, logs', hinv', sbisim_trans hu hj⟩
+    exact cih t' w' g' σ' (c + 1) logs' (hw' ▸ .obs _ _) hinv' (sbisim_trans hu hj)
 
 theorem aul_pool_rr_eventually {G V : Type} {n : Nat} (ts : Pool E Bn (n + 1))
     (Inv : G → Sg → Prop) (rank : G → V) (ltV : V → V → Prop) (P : W → Prop) :

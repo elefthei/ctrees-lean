@@ -13,7 +13,7 @@ hypotheses of the `step_sb_*_gen` rules are dropped (which makes the `Chain`-spe
 `step_sb_*` redundant except for `step_sb_ret`).
 
 Rocq `step` on a goal `sbisim L t u` is `sbisim_unfold.2`; on a hypothesis it is
-`sbisim_unfold.1`. Coinduction is `Coinduction.coinduction (b := sb L)`.
+`sbisim_unfold.1`. Coinduction is the `coinduction R hR CIH` tactic; `step` unfolds `R t u`.
 -/
 
 @[expose] public section
@@ -463,11 +463,10 @@ end SbProofSystem
 section WithParams
 
 theorem sbisim_spinS_gen_nonempty (c c' : C.I) (x : C.O c) (y : C.O c') :
-    (CTree.spinS_gen c : CTree E C X) ~ (.spinS_gen c' : CTree E C X) :=
-  coinduction (b := sb Eq) (fun _ : Unit => (CTree.spinS_gen c : CTree E C X))
-    (fun _ => .spinS_gen c') (fun _ _ CIH _ => by
-      rw [unfold_spinS_gen c, unfold_spinS_gen c']
-      exact step_sb_brS_gen c c' _ _ rfl (fun _ => ⟨y, CIH ⟨⟩⟩) fun _ => ⟨x, CIH ⟨⟩⟩) ⟨⟩
+    (CTree.spinS_gen c : CTree E C X) ~ (.spinS_gen c' : CTree E C X) := by
+  coinduction _ _ CIH
+  rw [unfold_spinS_gen c, unfold_spinS_gen c']
+  exact step_sb_brS_gen c c' _ _ rfl (fun _ => ⟨y, CIH⟩) fun _ => ⟨x, CIH⟩
 
 theorem spin_gen_bisim (c c' : C.I) :
     (CTree.spin_gen c : CTree E C X) ~ (.spin_gen c' : CTree E C X) :=

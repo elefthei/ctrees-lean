@@ -14,7 +14,7 @@ prefix guards and predecessor worlds (← `Logic/Simulation.v`).
 @[expose] public section
 namespace Tisl
 open ITree (Effect)
-open CTree.Coinduction
+open Coinduction
 
 /-- Relations on events. The answers of related events are related by `HEq` where needed. -/
 def event_rel (E : Effect.{u}) : Type u := E.I → E.I → Prop

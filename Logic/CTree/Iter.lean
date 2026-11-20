@@ -66,7 +66,7 @@ private theorem auc_family_chain {P : CTree E B X → World E → Prop}
   intro t w h
   induction h with
   | matchA h => exact h
-  | stepA hp hs _ ih => exact b_chain hR _ _ ⟨hp, hs, ih⟩
+  | stepA hp hs _ ih => step; exact ⟨hp, hs, ih⟩
 
 private theorem euc_family_chain {P : CTree E B X → World E → Prop}
     {R : Rel (CTree E B X) (World E)} (hR : Chain (egcF P) R) :
@@ -74,7 +74,7 @@ private theorem euc_family_chain {P : CTree E B X → World E → Prop}
   intro t w h
   induction h with
   | matchE h => exact h
-  | stepE t' w' hp tr _ ih => exact b_chain hR _ _ ⟨hp, t', w', tr, ih⟩
+  | stepE t' w' hp tr _ ih => step; exact ⟨hp, t', w', tr, ih⟩
 
 /-- `AG` cutpoint family. The leading next requires actual progress before another cutpoint; a
 silent guard-only cycle is not sufficient. -/
@@ -86,16 +86,14 @@ theorem ag_family (T Body : I → CTree E B X) (Inv : I → World E → Prop) {�
         (Body i) w) :
     ∀ i w, Inv i w → entails (AG φ) (T i) w := by
   have hP : SbProper (entails (X := X) (B := B) φ) := fun _ h => proper_entails_meq φ h
+  coinduction R hR CIH
   intro i w hinv
-  refine coinduction (b := agcF (entails φ)) (fun p : (Σ' i w, Inv i w) => T p.1)
-    (fun p => p.2.1) (fun R hR CIH => ?_) ⟨i, w, hinv⟩
-  rintro ⟨i, w, hinv⟩
   have hRp := agc_chain_proper (P := entails φ) (fun _ _ _ h => hP _ h) R hR
   refine (proper_ax_equ (P := entails φ) (Q := R) (fun _ _ _ h => hP _ h) hRp (hshape i)).2 ?_
   refine anc_mono_r (fun t z h => auc_family_chain hR t z ?_) _ _ (hbody i w hinv)
   refine auc_mono_r (fun u y h => ?_) _ _ h
   rcases h with ⟨j, hj, ht⟩ | hG
-  · exact (hRp _ _ _ ht).2 (CIH ⟨j, y, hj⟩)
+  · exact (hRp _ _ _ ht).2 (CIH j y hj)
   · exact gfp_le_chain hR _ _ hG
 
 /-- `EG` cutpoint family. -/
@@ -107,16 +105,14 @@ theorem eg_family (T Body : I → CTree E B X) (Inv : I → World E → Prop) {�
         (Body i) w) :
     ∀ i w, Inv i w → entails (EG φ) (T i) w := by
   have hP : SbProper (entails (X := X) (B := B) φ) := fun _ h => proper_entails_meq φ h
+  coinduction R hR CIH
   intro i w hinv
-  refine coinduction (b := egcF (entails φ)) (fun p : (Σ' i w, Inv i w) => T p.1)
-    (fun p => p.2.1) (fun R hR CIH => ?_) ⟨i, w, hinv⟩
-  rintro ⟨i, w, hinv⟩
   have hRp := egc_chain_proper (P := entails φ) (fun _ _ _ h => hP _ h) R hR
   refine (proper_ex_equ (P := entails φ) (Q := R) (fun _ _ _ h => hP _ h) hRp (hshape i)).2 ?_
   refine enc_mono_r (fun t z h => euc_family_chain hR t z ?_) _ _ (hbody i w hinv)
   refine euc_mono_r (fun u y h => ?_) _ _ h
   rcases h with ⟨j, hj, ht⟩ | hG
-  · exact (hRp _ _ _ ht).2 (CIH ⟨j, y, hj⟩)
+  · exact (hRp _ _ _ ht).2 (CIH j y hj)
   · exact gfp_le_chain hR _ _ hG
 
 /-! ## Continuation-parametric rules -/
@@ -280,9 +276,9 @@ theorem ag_iter (R : I → World E → Prop) {i : I} {w : World E} {k : I → CT
         entails (AX (φ AU .ret fun (lr : I ⊕ X) w' => ∃ i', lr = .inl i' ∧ R i' w')) (k i) w) :
     entails (AG φ) (CTree.iter k i) w := by
   have hP : SbProper (entails (X := X) (B := B) φ) := fun _ h => proper_entails_meq φ h
-  refine coinduction (b := agcF (entails φ)) (fun p : (Σ' i w, R i w) => CTree.iter k p.1)
-    (fun p => p.2.1) (fun RR hRR CIH => ?_) ⟨i, w, hR⟩
-  rintro ⟨i, w, hR⟩
+  revert i w hR
+  coinduction RR hRR CIH
+  intro i w hR
   obtain ⟨hφ, -, ⟨k', wk, tr⟩, hn⟩ := H i w hR
   refine ⟨hφ, ?_, fun t' w' htr => ?_⟩
   · rw [unfold_iter]
@@ -292,7 +288,7 @@ theorem ag_iter (R : I → World E → Prop) {i : I} {w : World E} {k : I → CT
     · refine ag_bind_chain hRR (hn _ _ tr₀) fun lr z ⟨j, hlr, hj⟩ => ?_
       subst hlr
       exact (agc_chain_proper (P := entails φ) (fun _ _ _ h => hP _ h) RR hRR _ _ _
-        (sb_guard _)).2 (CIH ⟨j, z, hj⟩)
+        (sb_guard _)).2 (CIH hj)
     · obtain ⟨_, _, -, hs, -⟩ := (au_stuck (φ := φ)).2 (hn _ _ tr₀)
       exact (can_step_stuck hs).elim
 
@@ -305,9 +301,9 @@ theorem eg_iter (R : I → World E → Prop) {i : I} {w : World E} {k : I → CT
         entails (EX (φ EU .ret fun (lr : I ⊕ X) w' => ∃ i', lr = .inl i' ∧ R i' w')) (k i) w) :
     entails (EG φ) (CTree.iter k i) w := by
   have hP : SbProper (entails (X := X) (B := B) φ) := fun _ h => proper_entails_meq φ h
-  refine coinduction (b := egcF (entails φ)) (fun p : (Σ' i w, R i w) => CTree.iter k p.1)
-    (fun p => p.2.1) (fun RR hRR CIH => ?_) ⟨i, w, hR⟩
-  rintro ⟨i, w, hR⟩
+  revert i w hR
+  coinduction RR hRR CIH
+  intro i w hR
   obtain ⟨hφ, -, k', wk, tr, hn⟩ := H i w hR
   change enc _ RR (CTree.iter k i) w
   rw [unfold_iter] at hφ ⊢
@@ -315,7 +311,7 @@ theorem eg_iter (R : I → World E → Prop) {i : I} {w : World E} {k : I → CT
     eg_bind_chain hRR hn fun lr z ⟨j, hlr, hj⟩ => ?_⟩
   subst hlr
   exact (egc_chain_proper (P := entails φ) (fun _ _ _ h => hP _ h) RR hRR _ _ _
-    (sb_guard _)).2 (CIH ⟨j, z, hj⟩)
+    (sb_guard _)).2 (CIH hj)
 
 end IterLemmas
 

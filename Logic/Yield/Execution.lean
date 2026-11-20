@@ -47,7 +47,7 @@ theorem emit_turns_chain {R : Rel (ctreeW W B X) (ctreeW W B X)} (hR : Chain (sb
     R (emit_turns turns t) (emit_turns turns u) := by
   induction turns with
   | nil => exact h
-  | cons ev rest ih => exact b_chain hR _ _ (step_sb_step_gen rfl (emit_list_chain hR ev ih))
+  | cons ev rest ih => step; exact step_sb_step_gen rfl (emit_list_chain hR ev ih)
 
 theorem emit_turns_sbisim (turns : List (List W)) {t u : ctreeW W B X} (h : t ~ u) :
     emit_turns turns t ~ emit_turns turns u :=
@@ -97,17 +97,15 @@ theorem emit_turn_batches_bisim (batch : I → List (List W)) (next : I → I) (
     (hnonempty : ∀ i, Inv i → batch i ≠ [])
     (hroot : ∀ i, Inv i → root i ~ emit_turns (batch i) (root (next i))) :
     ∀ i, Inv i → root i ~ (emit_turn_batches batch next i : ctreeW W B X) := by
+  coinduction R hR cih
   intro i hi
-  refine coinduction (b := sb Eq) (ι := {i // Inv i}) (fun i => root i.1)
-    (fun i => emit_turn_batches batch next i.1) ?_ ⟨i, hi⟩
-  rintro R hR cih ⟨i, hi⟩
   refine sbisim_clos_sb (.step hR) _ _
     (emit_turns (batch i) (emit_turn_batches batch next (next i)))
     _ (hroot i hi) ?_ (sbisim_symm (emit_turn_batches_unfold_sbisim batch next i))
   match hb : batch i, hnonempty i hi with
   | ev :: rest, _ =>
     exact step_sb_step_gen rfl
-      (emit_list_chain hR ev (emit_turns_chain hR rest (cih ⟨next i, hnext i hi⟩)))
+      (emit_list_chain hR ev (emit_turns_chain hR rest (cih (next i) (hnext i hi))))
 
 end EmitTurns
 
@@ -151,7 +149,8 @@ theorem unfold_model_nd_sbisim (s : St) :
         | none => .stuck
         | some (next, logs) => emit_list logs (model_nd n actor step next : ctreeW W B X) := by
   rw [unfold_model_nd]
-  refine b_chain (gfp_chain (sb Eq)) _ _ (step_sb_brSn_id fun i => ?_)
+  step
+  refine step_sb_brSn_id fun i => ?_
   split
   · exact sbisim_refl _
   · exact emit_list_sbisim _ (sb_guard _)
@@ -664,14 +663,8 @@ theorem pool_simulation_nd_bisim [Bn -< B] [LawfulSubeffect Bn B] (actor : Fin (
     ∀ s ts σ, Inv s → agree σ s → pool_guard_equ ts (pool_of s) →
       interp_schedule_nd handler (n + 1) ts none σ ~
         (model_nd n actor step s : ctreeW W B (PUnit × Sg)) := by
+  coinduction R hR cih
   intro s ts σ hinv hagree hpool
-  refine coinduction (b := sb Eq) (ι := {p : St × Pool E B (n + 1) × Sg //
-      Inv p.1 ∧ agree p.2.2 p.1 ∧ pool_guard_equ p.2.1 (pool_of p.1)})
-    (fun p => interp_schedule_nd handler (n + 1) p.1.2.1 none p.1.2.2)
-    (fun p => (model_nd n actor step p.1.1 : ctreeW W B (PUnit × Sg))) ?_
-    ⟨(s, ts, σ), hinv, hagree, hpool⟩
-  rintro R hR cih ⟨⟨s, ts, σ⟩, hinv, hagree, hpool⟩
-  dsimp only
   refine sbisim_clos_sb (.step hR) _ _ _ _ (interp_schedule_nd_select handler n ts σ) ?_
     (sbisim_refl _)
   rw [unfold_model_nd]
@@ -683,7 +676,7 @@ theorem pool_simulation_nd_bisim [Bn -< B] [LawfulSubeffect Bn B] (actor : Fin (
   rw [hstep]
   refine sbisim_clos_sb hR _ _ _ _ efocus (emit_list_chain hR event ?_) (sbisim_refl _)
   exact sbisim_clos_sb hR _ _ _ _ (sbisim_refl _)
-    (cih ⟨(next, ts.set i residual, σ'), hnextinv, hagree', hnextpool⟩) (sbisim_symm (sb_guard _))
+    (cih next (ts.set i residual) σ' hnextinv hagree' hnextpool) (sbisim_symm (sb_guard _))
 
 end PoolSimulationTheory
 
@@ -700,14 +693,8 @@ theorem pool_simulation_rr_bisim {E : Effect.{0}} {W Sg St Act : Type} {n : Nat}
     ∀ s ts σ cursor, Inv s → agree σ s → pool_guard_equ ts (pool_of s) →
       interp_schedule_rr handler (n + 1) ts none cursor σ ~
         (model_rr n actor step s cursor : ctreeW (W ⊕ Nat) Bn (PUnit × Sg)) := by
+  coinduction R hR cih
   intro s ts σ cursor hinv hagree hpool
-  refine coinduction (b := sb Eq) (ι := {p : St × Pool E Bn (n + 1) × Sg × Nat //
-      Inv p.1 ∧ agree p.2.2.1 p.1 ∧ pool_guard_equ p.2.1 (pool_of p.1)})
-    (fun p => interp_schedule_rr handler (n + 1) p.1.2.1 none p.1.2.2.2 p.1.2.2.1)
-    (fun p => (model_rr n actor step p.1.1 p.1.2.2.2 : ctreeW (W ⊕ Nat) Bn (PUnit × Sg))) ?_
-    ⟨(s, ts, σ, cursor), hinv, hagree, hpool⟩
-  rintro R hR cih ⟨⟨s, ts, σ, cursor⟩, hinv, hagree, hpool⟩
-  dsimp only
   obtain ⟨next, event, hstep, hnextinv⟩ :=
     Hsim.simulation_total (actor (rr_pick n cursor)) s hinv
   obtain ⟨residual, σ', hseg, hagree', hnextpool⟩ :=
@@ -726,8 +713,8 @@ theorem pool_simulation_rr_bisim {E : Effect.{0}} {W Sg St Act : Type} {n : Nat}
     rw [ew]
     exact emit_list_sbisim _ (sb_guard _)
   · exact sbisim_clos_sb hR _ _ _ _ (sbisim_refl _)
-      (cih ⟨(next, ts.set (rr_pick n cursor) residual, σ', cursor + 1), hnextinv, hagree',
-        hnextpool⟩) (sbisim_symm (sb_guard _))
+      (cih next (ts.set (rr_pick n cursor) residual) σ' (cursor + 1) hnextinv hagree'
+        hnextpool) (sbisim_symm (sb_guard _))
 
 -- Not ported: the section-local `Abbreviation`s `Rexact`/`Rsb` (written inline as
 -- `fun _ t u => t = u` / `fun _ t u => t ~ u`).

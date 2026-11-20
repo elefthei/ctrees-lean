@@ -15,7 +15,7 @@ of the until/always modalities (← `Logic/Congruence.v`). The model family `M` 
 @[expose] public section
 namespace Tisl
 open ITree (Effect)
-open CTree.Coinduction Notation
+open Coinduction Notation
 
 /-- Semantic implication at a model type (Rocq `impl_ticl X b`). -/
 def impl_ticl (M : Effect.{u} → Effect.{u} → Type u → Type u) {E : Effect.{u}} (B : Effect.{u})

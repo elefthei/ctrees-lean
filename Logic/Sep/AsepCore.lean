@@ -563,10 +563,9 @@ theorem asep_ex_compose (I : AsepState → Prop) (P Q : AsepPred) (t : AsepTree)
 theorem asep_agc_compose (I : AsepState → Prop) (P Q : AsepPred) (t : AsepTree) (w : AsepWorld)
     (Hclosed : asep_closed I) (HP : asep_pred_ok P) (HQ : asep_pred_ok Q)
     (H : asep_sat I (agc P) (agc Q) t w) : agc (asep_sat I P Q) t w := by
-  refine coinduction (b := agcF (asep_sat I P Q))
-    (fun p : (Σ' t w, asep_sat I (agc P) (agc Q) t w) => p.1) (fun p => p.2.1)
-    (fun R _ CIH => ?_) ⟨t, w, H⟩
-  rintro ⟨t, w, H⟩
+  revert t w H
+  coinduction R _ CIH
+  intro t w H
   obtain ⟨s, Et, rfl, Hok, -, HI, HC, HPar⟩ := asep_sat_inv I _ _ t w H
   have HCstep := agc_unfold.1 HC
   have HPstep := agc_unfold.1 HPar
@@ -579,7 +578,7 @@ theorem asep_agc_compose (I : AsepState → Prop) (P Q : AsepPred) (t : AsepTree
   obtain ⟨s', r, i, Hfront, Eq, rfl, HTi, Er, Ef, Ew⟩ :=
     asep_visible_forward_owner s q v Hok Hq Hlive
   obtain ⟨Hok', HI'⟩ := asep_closed_frontier I s s' Hclosed Hok HI Hfront
-  refine CIH ⟨u, s'.global, s', sbisim_trans Eu Eq, rfl, ?_⟩
+  refine CIH u s'.global ⟨s', sbisim_trans Eu Eq, rfl, ?_⟩
   cases i <;> simp only [other] at Ef Ew
   · refine asep_at_intro I _ _ s' Hok' HI' ?_ ?_
     · exact asep_pred_transport _ (asep_pred_ok_agc P HP) _ _ _ Er (HCstep.2.2 _ _ HTi)

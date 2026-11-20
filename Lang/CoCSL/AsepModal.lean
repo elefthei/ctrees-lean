@@ -16,7 +16,7 @@ monotonicity, properness under `owned_equ` and selection stability of view predi
 
 @[expose] public section
 namespace CoCSL
-open CTree Tisl Tisl.CSL Tisl.Pcm CTree.Coinduction
+open CTree Tisl Tisl.CSL Tisl.Pcm Coinduction
 open ITree (Effect)
 
 /-! ## A Kripke model of a bare transition relation -/
