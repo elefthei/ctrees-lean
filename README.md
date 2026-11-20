@@ -1,17 +1,23 @@
 # ctrees-lean
 
-A Lean 4 port of [Choice Trees](https://github.com/vellvm/ctrees) (`theories/`): the coinductive
-`CTree E B R` with `ret/stuck/step/guard/vis/br` nodes, its labelled transition system, strong and
-weak (bi)simulations built on a Lean port of Damien Pous's coinduction tower, and interpreters
-(`foldM`, `interp`, `refine`, state, `mrec`, ITree embedding).
+Choice trees and the TICL temporal logic in Lean 4, ported from three Rocq developments:
 
-`Coinductive/CoInd.lean` and `ITree/{Effect,Definition,InterpM}.lean` are vendored verbatim from
-[coinductive-lean](https://github.com/ISTA-PLV/coinductive) @ `e9b076be`.
+- [damien-pous/coinduction](https://github.com/damien-pous/coinduction): the companion and
+  coinduction tower of Pous, "Coinduction All the Way Up" (LICS 2016), in `CTree/Coinduction.lean`.
+  Every simulation and bisimulation below is a greatest fixpoint proved with it, up to enhancements.
+- [vellvm/ctrees](https://github.com/vellvm/ctrees): choice trees (Chappe et al., POPL 2023), a
+  coinductive model of nondeterministic, recursive and impure programs, in `CTree/`.
+- [vellvm/ticl](https://github.com/vellvm/ticl) (branch `lang/yield`): TICL, a temporal logic over
+  ctrees with structural proof rules, together with cooperative schedulers, a separation layer and
+  the CoCSL language, in `Logic/`, `Lang/` and `Examples/`.
 
-Build: `lake build`. No Mathlib. `tests/UniverseCheck` is not portable (`PF` forces one universe).
+The coinductive types come from [coinductive-lean](https://github.com/ISTA-PLV/coinductive),
+vendored under `Coinductive/` and `ITree/`. There is no Mathlib dependency, and `lake build` checks
+everything. [PORTING.md](PORTING.md) maps Rocq files to Lean files and lists what was not ported.
 
-Use from another Lake package (released on [Reservoir](https://reservoir.lean-lang.org) as
-`elefthei/ctrees`):
+## Install
+
+The package is released on [Reservoir](https://reservoir.lean-lang.org) as `elefthei/ctrees`:
 
 ```toml
 [[require]]
@@ -23,74 +29,72 @@ rev = "v0.1.0"
 The vendored libraries keep their module names (`Coinductive.CoInd`, `ITree.*`), so this package
 cannot be required alongside coinductive-lean itself.
 
-## Layout
+## Equivalences
 
-| Rocq | Lean |
-|---|---|
-| `Core/{Utils,Index,CTreeDefinitions}.v` | `CTree/Core/{Utils,Index,Definitions}.lean` |
-| `coinduction` library (`tower.v`, `rel.v`) | `CTree/Coinduction.lean` |
-| `Eq/{Equ,Shallow}.v` | `CTree/Eq/Equ.lean` |
-| `Eq/{Trans,SSim,CSSim,SBisim,Visible,Epsilon,SSimAlt,SBisimAlt,WBisim,Trace,IterFacts}.v` | `CTree/Eq/*.lean` (same names) |
-| `Misc/{Pure,Head}.v` | `CTree/Misc/{Pure,Head}.lean` |
-| `Interp/*.v` | `CTree/Interp/*.lean` (same names) |
+A `CTree E B X` returns values in `X`, performs events from `E`, and branches on choices from `B`.
+A `br` node is a hidden choice; a `brS` node is a visible one that takes a step.
 
-## Conventions
+You can prove strong bisimulation `t ~ u` (`sbisim`), weak bisimulation `t ≈ u` (`wbisim`), strong
+and complete simulations (`ssim`, `cssim`), and trace equivalence. The heterogeneous versions relate
+trees with different events and return types through a label relation. `~` is a congruence for
+`>>=` (`sbisim_clo_bind`), for `iter` (`sbisim_iter`) and for interpretation with simple handlers
+(`interp_sbisim_eq`). Refining choices into pure trees gives a tree that the original simulates
+(`refine_ctree_ssim`).
 
-- `CTree` is extensional, so Rocq's structural equality `equ eq` (`≅`) is `=`. Equality coinduction
-  is `eq_coind`/`eq_coind_upto`.
-- `~` is `sbisim Eq` and `≈` is `wbisim`, both scoped to `namespace CTree`. Rocq's `step`
-  tactic is `*_unfold.1`/`.2`, and `coinduction` is `Coinduction.coinduction (b := …)`.
-- Effects are `ITree.Effect` (`I`, `O`), and handlers `E ~> M` are `(e : E.I) → M (E.O e)`. Rocq's
-  `-<` is `Subeffect`. Lemmas that need every branch of an injected `br'` to be reachable also take
-  `[LawfulSubeffect B₁ B]`; Rocq gets this for free.
-- Rocq `_id` rules over a shared answer type take `hO : F.O f = E.O e` plus `cast`.
-- Lean's `StateT` returns `(value, state)` and Rocq's `stateT` returns `(state, value)`. The
-  `Interp/FoldStateT` and `Interp/Refine` statements are flipped to match.
-- Renamed declarations:
-  - Predicates use Lean case: `isStuck`, `isPure`, `PureFinite`, `isSimple`, `Productive`,
-    `Epsilon`, `EpsilonDet`, `wfVal`, `updateValRel`, `HAction`, `runHAction`, `converseNeg`.
-  - Rocq `fold` is `foldM`, because `CTree.fold` is the coinductive constructor. `trans_ABr` is
-    `trans_AStep`.
-  - Generic names that clash take a relation prefix: `bind_chain_gen` becomes `sb_`/`ss'_`/`sb'_`/
-    `wb_chain_bind_gen`; `spinS_gen_nonempty` becomes `ssim_`/`cssim_`/`sbisim_spinS_gen_nonempty`;
-    RecursionFacts' `interp_trigger` becomes `interp_trigger_sbisim`.
-- Rocq typeclass instances that only package lemmas (`Equivalence_*`, `PreOrder_*`, `Transitive_*`,
-  `Reflexive_*`, `Proper` instances over `eq`) are theorems.
+Nondeterministic choice satisfies the expected laws up to `~`:
 
-## Not ported
+```lean
+import CTree
+open CTree
 
-- **Everything about `equ`**: the `Proper (equ …)`, `weq` and `Lequiv` instances, the
-  up-to-`equ` closures (`equ_clos*`), and `*_equ` lemmas. All are trivial for `=`.
-- **Rocq-only tooling**: Ltac and tactic notations (`step`, `coinduction`, `play`, `inv_trans`,
-  `upto_bind`, `break`, …), printing-only notations, and `Arguments`/`Opaque`/`Typeclasses Opaque`
-  directives.
-- **Chain-specialised duplicates of `_gen` rules** (`step_ss_*`, `step_css_*`, `step_sb_*` without
-  `_gen`, `sbisim_ssim_subrelation`, …). Dropping the `Proper` hypotheses makes the `_gen`
-  versions apply directly.
-- **By file**:
-  - `Core/Utils.v`: the `Injective`/`Deterministic` classes, which only Ltac uses.
-  - `Core/CTreeDefinitions.v`: `subst`, `cat`, `map` (use `>>=`, `>=>`, `<$>`). `Vis_eq1/2` and
-    `Br_eq1/2` are `vis_eq_vis_iff'` and `br_eq_br_iff'`.
-  - `Eq/Equ.v`, `Eq/Shallow.v`: `equ`, `observing`, `going` and their theory.
-  - `Eq/Trans.v`: the `Coproduct` section (`srtrans`/`sltrans`/`ltrans`/`rtrans`). It is unused
-    upstream, and `srtrans_`/`sltrans_` have no base constructor, so they are empty relations.
-  - `Eq/SBisim.v`: the `sbisim_clos` monotone function (the closure lemmas take its hypotheses
-    directly) and `bind_sbisim_cong(_gen)` (covered by `sbisim_clo_bind(_eq)`).
-  - `Eq/SBisimAlt.v`: `lift_rel3`, which only the `equ` closure uses.
-  - `Eq/WBisim.v`:
-    - `wbisimT`: RelationAlgebra packaging.
-    - `cnv_gfp`, `cnv_wbisim`: covered by `cnv_wt` and `wbisim_symm`.
-    - `wbisim_trans_back'`, `wbisim_wtrans_front_`: duplicates.
-    - `wb_step_inv`: `Abort`ed upstream.
-    - `spinS_nary_0`, `brS2_not_assoc`: commented out upstream.
-  - `Misc/Head.v`: `eq_haction`, `head_equ`.
-  - `Interp/Recursion.v`, `Interp/RecursionFacts.v`:
-    - `Proper_interp_mrec`, `rec_as_interp`: `Admitted` upstream.
-    - `mrec_fix`, `rec_fix`, `unfold_interp_mrec_h`, `euttge_interp_mrec(')`: commented out
-      upstream.
-  - `Interp/ITree.v`: `embed_eq`, `eq_itree_productive`. Lean's `ITree` equality is `=`. The
-    vendored ITree has no `eutt`, so `Interp/ITree.lean` defines it locally with the tower
-    (`EuttF`, `eutt`) to state and prove `embed_eutt`.
+variable {E : ITree.Effect.{0}} {X : Type} (t u v : CTree E B2 X)
+
+-- Hidden choice is associative, commutative and idempotent.
+example : CTree.br2 (.br2 t u) v ~ .br2 t (.br2 u v) := br2_assoc t u v
+example : CTree.br2 t u ~ .br2 u t := br2_commut t u
+example : CTree.br2 t t ~ t := br2_idem t
+-- Visible choice commutes, but merging two equal branches leaves a visible step,
+example : CTree.brS2 t t ~ .step t := brS2_idem t
+-- which weak bisimulation ignores.
+example : CTree.step t ≈ t := step_wb t
+```
+
+Simulation in both directions does not imply bisimulation (`ssim_sbisim_nequiv`).
+
+## Liveness
+
+`entails φ t w` says that the ctree `t` in world `w` satisfies the TICL formula `φ`. Formulas
+include `AX`/`EX`, `AF`/`EF`, `AG`/`EG`, `AU`/`EU`, and `ret` postconditions on returned values.
+Proofs are structural. Each ctree node has its own rule (`au_ret`, `au_br`, `au_brS`, `au_vis`, …),
+sequencing has bind rules (`u_bind_r`, `ag_bind_r`), loops have variant and invariant rules
+(`u_iter_nat`, `ag_iter`, `eg_iter`), and every formula is invariant under `~`
+(`proper_entails_meq`).
+
+A loop that subtracts 1 or 2 at each round, chosen nondeterministically, terminates on every path.
+The variant `n` decreases in both branches:
+
+```lean
+import Logic
+open CTree Tisl Tisl.Notation
+
+def countdown (n : Nat) : CTree void1 B2 (Nat ⊕ PUnit) :=
+  if n = 0 then pure (.inr ⟨⟩) else .brS2 (pure (.inl (n - 1))) (pure (.inl (n - 2)))
+
+theorem countdown_af (n : Nat) :
+    entails (AF ret= PUnit.unit .pure) (CTree.iter countdown n) (.pure : World void1) := by
+  refine u_iter_nat (fun _ w => w = .pure) (fun n _ => n) rfl fun s w hw => ?_
+  subst hw; unfold countdown; split
+  · exact au_ret.1 (.inl (ret_ret .pure (ret_ret .pure ⟨rfl, rfl⟩)))
+  · refine (au_brS (ULift.up true)).1 (.inr ⟨⟨trivial, .pure⟩, fun ⟨b⟩ => ?_⟩)
+    cases b <;> exact au_ret.1 (.inl (ret_ret .pure ⟨rfl, by omega⟩))
+```
+
+The same rules scale to concurrent programs. Under any fair scheduler, a cooperative thread pool
+satisfies `AG (AF …)` of its observations, given a ranking certificate (`agaf_pool_fair`). Round
+robin is fair and nondeterministic selection is not. CoCSL adds frame and separation rules on top.
+`Examples/CSL/Allocator/Liveness.lean` proves that allocation, retirement and reclamation in a
+CAS-based allocator each recur under every fair scheduler (`allocator_agaf_fair`).
+`lake env lean Examples/CSL/Evidence.lean` prints the axioms of 238 headline results.
 
 ## License
 
