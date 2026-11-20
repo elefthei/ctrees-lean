@@ -34,14 +34,12 @@ private theorem denote_emit_loop (tag value : Nat) :
   simp only [source_raw_ret]
   rfl
 
-theorem run_nd_emit_loop_ag (tag value : Nat) (memory : ManagedHeap) (ctx : Ctx) (c : Nat)
-    (w : World (writerE (CSLObs (Nat × Nat)))) :
-    NotDone w →
-    entails (AG ⊤)
-      (run_nd (.untilNone (.bind (.emit tag value) fun _ => .ret (some ()))) (memory, (ctx, c)))
-      w := by
-  refine ag_log_family (fun c => run_nd _ (memory, (ctx, c))) (· + 1)
-    (fun c => CSLObs.emit (stamp (tag, value) c)) (fun c => ?_) c w
+/-- One iteration of the ND emitting loop logs one stamped emission and advances the counter. -/
+theorem run_nd_emit_loop_step (tag value : Nat) (memory : ManagedHeap) (ctx : Ctx) (c : Nat) :
+    run_nd (.untilNone (.bind (.emit tag value) fun _ => .ret (some ()))) (memory, (ctx, c)) ~
+      .vis (E := writerE (CSLObs (Nat × Nat))) (CSLObs.emit (stamp (tag, value) c)) fun _ =>
+        run_nd (.untilNone (.bind (.emit tag value) fun _ => .ret (some ())))
+          (memory, (ctx, c + 1)) := by
   simp only [run_nd_unfold]
   rw (occs := .pos [1]) [denote_emit_loop]
   refine sbisim_trans (interp_nd_source_emit_log 0 #v[pure ⟨⟩] 0 tag value _ memory ctx c) ?_
@@ -52,14 +50,12 @@ theorem run_nd_emit_loop_ag (tag value : Nat) (memory : ManagedHeap) (ctx : Ctx)
       .ret (some ())))) _ rfl) ?_, rfl⟩
   exact sbisim_refl _
 
-theorem run_rr_emit_loop_ag (tag value : Nat) (memory : ManagedHeap) (ctx : Ctx) (c : Nat)
-    (w : World (writerE (CSLObs (Nat × Nat) ⊕ Nat))) :
-    NotDone w →
-    entails (AG ⊤)
-      (run_rr (.untilNone (.bind (.emit tag value) fun _ => .ret (some ()))) (memory, (ctx, c)))
-      w := by
-  refine ag_log_family (fun c => run_rr _ (memory, (ctx, c))) (· + 1)
-    (fun c => .inl (CSLObs.emit (stamp (tag, value) c))) (fun c => ?_) c w
+/-- One iteration of the RR emitting loop logs one stamped emission and advances the counter. -/
+theorem run_rr_emit_loop_step (tag value : Nat) (memory : ManagedHeap) (ctx : Ctx) (c : Nat) :
+    run_rr (.untilNone (.bind (.emit tag value) fun _ => .ret (some ()))) (memory, (ctx, c)) ~
+      .vis (E := writerE (CSLObs (Nat × Nat) ⊕ Nat)) (.inl (CSLObs.emit (stamp (tag, value) c)))
+        fun _ => run_rr (.untilNone (.bind (.emit tag value) fun _ => .ret (some ())))
+          (memory, (ctx, c + 1)) := by
   simp only [run_rr_unfold]
   rw (occs := .pos [1]) [denote_emit_loop]
   refine sbisim_trans (interp_rr_emit_log 0 #v[pure ⟨⟩] 0 tag value _ 0 memory ctx c) ?_
@@ -69,6 +65,24 @@ theorem run_rr_emit_loop_ag (tag value : Nat) (memory : ManagedHeap) (ctx : Ctx)
       .ret (some ())))))) 0 (denote (.untilNone (.bind (.emit tag value) fun _ =>
       .ret (some ())))) _ _ rfl) ?_, rfl⟩
   exact sbisim_refl _
+
+theorem run_nd_emit_loop_ag (tag value : Nat) (memory : ManagedHeap) (ctx : Ctx) (c : Nat)
+    (w : World (writerE (CSLObs (Nat × Nat)))) :
+    NotDone w →
+    entails (AG ⊤)
+      (run_nd (.untilNone (.bind (.emit tag value) fun _ => .ret (some ()))) (memory, (ctx, c)))
+      w :=
+  ag_log_family (fun c => run_nd _ (memory, (ctx, c))) (· + 1) _
+    (run_nd_emit_loop_step tag value memory ctx) c w
+
+theorem run_rr_emit_loop_ag (tag value : Nat) (memory : ManagedHeap) (ctx : Ctx) (c : Nat)
+    (w : World (writerE (CSLObs (Nat × Nat) ⊕ Nat))) :
+    NotDone w →
+    entails (AG ⊤)
+      (run_rr (.untilNone (.bind (.emit tag value) fun _ => .ret (some ()))) (memory, (ctx, c)))
+      w :=
+  ag_log_family (fun c => run_rr _ (memory, (ctx, c))) (· + 1) _
+    (run_rr_emit_loop_step tag value memory ctx) c w
 
 /-- The silent loop is its own guard. -/
 private theorem denote_silent_loop :
