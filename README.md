@@ -19,14 +19,17 @@ ported.
 
 ## Install
 
-The package is released on [Reservoir](https://reservoir.lean-lang.org) as `elefthei/ctrees`:
+Require it from GitHub by release tag:
 
 ```toml
 [[require]]
 name = "ctrees"
-scope = "elefthei"
-rev = "v0.1.1"
+git = "https://github.com/elefthei/ctrees-lean"
+rev = "v0.1.2"
 ```
+
+Reservoir listing (as `elefthei/ctrees`) is pending: Reservoir indexes repositories on its own and
+has not picked this one up yet. Once it does, `scope = "elefthei"` can replace the `git` line.
 
 The vendored libraries keep their module names (`Coinductive.CoInd`, `ITree.*`), so this package
 cannot be required alongside coinductive-lean itself.
