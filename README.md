@@ -25,7 +25,7 @@ The package is released on [Reservoir](https://reservoir.lean-lang.org) as `elef
 [[require]]
 name = "ctrees"
 scope = "elefthei"
-rev = "v0.1.0"
+rev = "v0.1.1"
 ```
 
 The vendored libraries keep their module names (`Coinductive.CoInd`, `ITree.*`), so this package
