@@ -4,7 +4,7 @@ description = "Choice Trees: a Lean 4 port of the Rocq ctrees library (coinducti
 keywords = ["coinduction", "bisimulation", "semantics", "interaction-trees"]
 license = "MIT"
 licenseFiles = ["LICENSE", "LICENSE-APACHE"]
-defaultTargets = ["Coinductive", "ITree", "CTree", "Test"]
+defaultTargets = ["Coinductive", "ITree", "CTree", "Logic", "Lang", "Examples", "Test"]
 
 [[lean_lib]]
 name = "Coinductive"
@@ -18,3 +18,13 @@ name = "CTree"
 [[lean_lib]]
 name = "Test"
 globs = ["Test.+"]
+
+[[lean_lib]]
+name = "Logic"
+
+[[lean_lib]]
+name = "Lang"
+
+[[lean_lib]]
+name = "Examples"
+globs = ["Examples.+"]
